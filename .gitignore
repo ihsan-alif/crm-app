@@ -1,0 +1,35 @@
+# === OS ===
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# === Go ===
+Server/bin/
+Server/tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# === Node ===
+Client/node_modules/
+Client/dist/
+Client/build/
+*.tsbuildinfo
+
+# === Env ===
+.env
+.env.local
+.env.production
+.env.development.local
+
+# === IDE ===
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
