@@ -1,8 +1,10 @@
 package service
 
 import (
-	"qasir-crm/internal/model"
-	"qasir-crm/internal/pkg"
+	"app-crm/internal/model"
+	"app-crm/internal/pkg"
+
+	"gorm.io/gorm"
 )
 
 type AuthService interface {
@@ -12,13 +14,15 @@ type AuthService interface {
 }
 
 type authService struct {
+	db          *gorm.DB
 	userService UserService
 	jwtService  pkg.JWTService
 	tenantSvc   TenantService
 }
 
-func NewAuthService(userService UserService, jwtService pkg.JWTService, tenantSvc TenantService) AuthService {
+func NewAuthService(db *gorm.DB, userService UserService, jwtService pkg.JWTService, tenantSvc TenantService) AuthService {
 	return &authService{
+		db:          db,
 		userService: userService,
 		jwtService:  jwtService,
 		tenantSvc:   tenantSvc,
@@ -35,6 +39,9 @@ func (s *authService) Register(req model.RegisterRequest) (*model.LoginResponse,
 	if err != nil {
 		return nil, err
 	}
+
+	createActivityLog(s.db, tenant.ID, &user.ID, "register", "auth",
+		"Akun "+user.Email+" didaftarkan", &user.ID)
 
 	tokens, err := s.generateTokens(user)
 	if err != nil {
@@ -63,6 +70,9 @@ func (s *authService) Login(req model.LoginRequest) (*model.LoginResponse, error
 	}
 
 	s.userService.UpdateLastLogin(user.ID)
+
+	createActivityLog(s.db, user.TenantID, &user.ID, "login", "auth",
+		user.Name+" login ke sistem", &user.ID)
 
 	tokens, err := s.generateTokens(user)
 	if err != nil {

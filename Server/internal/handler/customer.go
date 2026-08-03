@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"encoding/csv"
 	"strconv"
+	"strings"
 
-	"qasir-crm/internal/model"
-	"qasir-crm/internal/pkg"
-	"qasir-crm/internal/service"
+	"app-crm/internal/model"
+	"app-crm/internal/pkg"
+	"app-crm/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -88,7 +90,7 @@ func (h *CustomerHandler) Update(c *gin.Context) {
 		return
 	}
 
-	customer, err := h.customerService.Update(tenantID, uint(id), req)
+	customer, err := h.customerService.Update(tenantID, c.GetUint("user_id"), uint(id), req)
 	if err != nil {
 		pkg.NotFound(c, "Pelanggan tidak ditemukan")
 		return
@@ -101,10 +103,80 @@ func (h *CustomerHandler) Delete(c *gin.Context) {
 	tenantID := c.GetUint("tenant_id")
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 
-	if err := h.customerService.Delete(tenantID, uint(id)); err != nil {
+	if err := h.customerService.Delete(tenantID, c.GetUint("user_id"), uint(id)); err != nil {
 		pkg.NotFound(c, "Pelanggan tidak ditemukan")
 		return
 	}
 
 	pkg.OK(c, gin.H{"message": "Pelanggan berhasil dihapus"})
+}
+
+func (h *CustomerHandler) Import(c *gin.Context) {
+	tenantID := c.GetUint("tenant_id")
+	userID := c.GetUint("user_id")
+
+	file, _, err := c.Request.FormFile("file")
+	if err != nil {
+		pkg.BadRequest(c, "File CSV tidak ditemukan")
+		return
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		pkg.BadRequest(c, "Format CSV tidak valid")
+		return
+	}
+
+	if len(records) < 2 {
+		pkg.BadRequest(c, "File CSV kosong atau hanya berisi header")
+		return
+	}
+
+	result, err := h.customerService.ImportCSV(tenantID, userID, records)
+	if err != nil {
+		pkg.InternalError(c)
+		return
+	}
+
+	pkg.OK(c, result)
+}
+
+func (h *CustomerHandler) Export(c *gin.Context) {
+	tenantID := c.GetUint("tenant_id")
+
+	csvData, err := h.customerService.ExportCSV(tenantID)
+	if err != nil {
+		pkg.InternalError(c)
+		return
+	}
+
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Header("Content-Disposition", "attachment; filename=pelanggan.csv")
+	c.String(200, csvData)
+}
+
+func (h *CustomerHandler) Template(c *gin.Context) {
+	var b strings.Builder
+	writer := csv.NewWriter(&b)
+	writer.Write([]string{"nama", "no_wa", "email", "alamat", "tag", "catatan"})
+	writer.Write([]string{"Contoh Budi", "08123456789", "budi@email.com", "Jakarta", "reguler", "Pelanggan baru"})
+	writer.Flush()
+
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Header("Content-Disposition", "attachment; filename=template_pelanggan.csv")
+	c.String(200, b.String())
+}
+
+func (h *CustomerHandler) ExportJSON(c *gin.Context) {
+	tenantID := c.GetUint("tenant_id")
+
+	customers, err := h.customerService.All(tenantID)
+	if err != nil {
+		pkg.InternalError(c)
+		return
+	}
+
+	pkg.OK(c, customers)
 }

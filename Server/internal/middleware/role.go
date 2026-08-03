@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"qasir-crm/internal/pkg"
+	"app-crm/internal/pkg"
 
 	"github.com/gin-gonic/gin"
 )

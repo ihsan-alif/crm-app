@@ -23,38 +23,35 @@ type Config struct {
 	ServerEnv  string
 
 	CORSOrigins string
+
+	WAVerifyToken string
 }
 
 func Load() *Config {
-	godotenv.Load()
+	godotenv.Load("../../.env")
 
 	return &Config{
-		DBHost:     getEnv("DB_HOST", "localhost"),
-		DBPort:     getEnv("DB_PORT", "5432"),
-		DBUser:     getEnv("DB_USER", "postgres"),
-		DBPassword: getEnv("DB_PASSWORD", "postgres"),
-		DBName:     getEnv("DB_NAME", "qasir_crm"),
-		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
+		DBHost:     os.Getenv("DB_HOST"),
+		DBPort:     os.Getenv("DB_PORT"),
+		DBUser:     os.Getenv("DB_USER"),
+		DBPassword: os.Getenv("DB_PASSWORD"),
+		DBName:     os.Getenv("DB_NAME"),
+		DBSSLMode:  os.Getenv("DB_SSLMODE"),
 
-		JWTSecret:        getEnv("JWT_SECRET", "secret-key"),
-		JWTAccessExpiry:  getDuration("JWT_ACCESS_EXPIRY", 15*time.Minute),
-		JWTRefreshExpiry: getDuration("JWT_REFRESH_EXPIRY", 7*24*time.Hour),
+		JWTSecret:        os.Getenv("JWT_SECRET"),
+		JWTAccessExpiry:  parseDuration("JWT_ACCESS_EXPIRY", 15*time.Minute),
+		JWTRefreshExpiry: parseDuration("JWT_REFRESH_EXPIRY", 7*24*time.Hour),
 
-		ServerPort: getEnv("SERVER_PORT", "8080"),
-		ServerEnv:  getEnv("SERVER_ENV", "development"),
+		ServerPort: os.Getenv("SERVER_PORT"),
+		ServerEnv:  os.Getenv("SERVER_ENV"),
 
-		CORSOrigins: getEnv("CORS_ORIGINS", "http://localhost:5173"),
+		CORSOrigins: os.Getenv("CORS_ORIGINS"),
+
+		WAVerifyToken: os.Getenv("WA_VERIFY_TOKEN"),
 	}
 }
 
-func getEnv(key, def string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
-	}
-	return def
-}
-
-func getDuration(key string, def time.Duration) time.Duration {
+func parseDuration(key string, def time.Duration) time.Duration {
 	val := os.Getenv(key)
 	if val == "" {
 		return def

@@ -17,7 +17,9 @@ type Transaction struct {
 	Status     TransactionStatus  `gorm:"size:10;default:'unpaid'" json:"status"`
 	Notes      *string            `gorm:"type:text" json:"notes,omitempty"`
 
-	Items []TransactionItem `gorm:"foreignKey:TransactionID" json:"items,omitempty"`
+	Items    []TransactionItem `gorm:"foreignKey:TransactionID" json:"items,omitempty"`
+	Customer *Customer         `gorm:"foreignKey:CustomerID" json:"customer,omitempty"`
+	Tenant   *Tenant           `gorm:"foreignKey:TenantID" json:"tenant,omitempty"`
 }
 
 type TransactionItem struct {

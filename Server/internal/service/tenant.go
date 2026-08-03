@@ -1,7 +1,7 @@
 package service
 
 import (
-	"qasir-crm/internal/model"
+	"app-crm/internal/model"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

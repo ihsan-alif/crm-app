@@ -1,23 +1,29 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { LayoutDashboard, Users, Receipt, MessageSquare, Settings, LogOut } from 'lucide-react'
+import { useTheme } from '../context/ThemeContext'
+import { LayoutDashboard, Users, Receipt, MessageSquare, Settings, LogOut, Moon, Sun, History } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/customers', icon: Users, label: 'Pelanggan' },
   { to: '/transactions', icon: Receipt, label: 'Transaksi' },
   { to: '/wa', icon: MessageSquare, label: 'WhatsApp' },
+  { to: '/activity-logs', icon: History, label: 'Aktivitas' },
   { to: '/settings', icon: Settings, label: 'Pengaturan' },
 ]
 
 export default function Layout() {
   const { user, logout } = useAuth()
+  const { isDark, toggle } = useTheme()
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <aside className="hidden md:flex flex-col w-56 bg-white border-r shadow-sm">
-        <div className="p-4 border-b">
-          <h1 className="font-bold text-lg text-blue-600">Qasir CRM</h1>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex">
+      <aside className="hidden md:flex flex-col w-56 bg-white dark:bg-gray-800 border-r dark:border-gray-700 shadow-sm">
+        <div className="p-4 border-b dark:border-gray-700 flex items-center justify-between">
+          <h1 className="font-bold text-lg text-blue-600 dark:text-blue-400">Qasir CRM</h1>
+          <button onClick={toggle} className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
         </div>
         <nav className="flex-1 p-3 space-y-1">
           {navItems.map((item) => (
@@ -28,8 +34,8 @@ export default function Layout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
                   isActive
-                    ? 'bg-blue-50 text-blue-700 font-medium'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`
               }
             >
@@ -38,13 +44,13 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="p-3 border-t">
+        <div className="p-3 border-t dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="text-sm">
               <p className="font-medium">{user?.name}</p>
-              <p className="text-gray-400 text-xs capitalize">{user?.role}</p>
+              <p className="text-gray-400 dark:text-gray-500 text-xs capitalize">{user?.role}</p>
             </div>
-            <button onClick={logout} className="p-1 text-gray-400 hover:text-red-500">
+            <button onClick={logout} className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400">
               <LogOut className="w-4 h-4" />
             </button>
           </div>
@@ -52,11 +58,14 @@ export default function Layout() {
       </aside>
 
       <div className="flex-1 flex flex-col">
-        <header className="md:hidden bg-white border-b px-4 py-3 flex items-center justify-between">
-          <h1 className="font-bold text-blue-600">Qasir CRM</h1>
+        <header className="md:hidden bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 py-3 flex items-center justify-between">
+          <h1 className="font-bold text-blue-600 dark:text-blue-400">Qasir CRM</h1>
           <div className="flex items-center gap-2 text-sm">
-            <span>{user?.name}</span>
-            <button onClick={logout} className="text-red-500 text-xs">Keluar</button>
+            <button onClick={toggle} className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+            <span className="dark:text-gray-300">{user?.name}</span>
+            <button onClick={logout} className="text-red-500 dark:text-red-400 text-xs">Keluar</button>
           </div>
         </header>
 
@@ -64,7 +73,7 @@ export default function Layout() {
           <Outlet />
         </main>
 
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around py-2">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t dark:border-gray-700 flex justify-around py-2">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -72,7 +81,7 @@ export default function Layout() {
               end={item.to === '/'}
               className={({ isActive }) =>
                 `flex flex-col items-center gap-0.5 text-xs px-2 ${
-                  isActive ? 'text-blue-600' : 'text-gray-400'
+                  isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'
                 }`
               }
             >

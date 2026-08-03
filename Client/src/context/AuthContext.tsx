@@ -36,15 +36,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const register = async (tenantName: string, name: string, email: string, password: string) => {
-    const { data } = await api.post<ApiResponse<LoginResponse>>('/auth/register', {
+    await api.post('/auth/register', {
       tenant_name: tenantName,
       name,
       email,
       password,
     })
-    localStorage.setItem('access_token', data.data!.access_token)
-    localStorage.setItem('refresh_token', data.data!.refresh_token)
-    setUser(data.data!.user)
   }
 
   const logout = () => {

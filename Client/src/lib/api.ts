@@ -40,3 +40,16 @@ api.interceptors.response.use(
 )
 
 export default api
+
+export async function downloadFile(url: string, filename: string) {
+  const res = await api.get(url, { responseType: 'blob' })
+  const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' })
+  const urlObj = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = urlObj
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(urlObj)
+}

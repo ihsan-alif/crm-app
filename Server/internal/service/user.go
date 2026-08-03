@@ -1,8 +1,8 @@
 package service
 
 import (
-	"qasir-crm/internal/model"
-	"qasir-crm/internal/pkg"
+	"app-crm/internal/model"
+	"app-crm/internal/pkg"
 
 	"gorm.io/gorm"
 )
@@ -13,6 +13,8 @@ type UserService interface {
 	FindByID(id uint) (*model.User, error)
 	ListByTenant(tenantID uint) ([]model.User, error)
 	UpdateLastLogin(id uint) error
+	UpdateProfile(id uint, name, email string) (*model.User, error)
+	ChangePassword(id uint, oldPassword, newPassword string) error
 }
 
 type userService struct {
@@ -78,4 +80,45 @@ func (s *userService) ListByTenant(tenantID uint) ([]model.User, error) {
 func (s *userService) UpdateLastLogin(id uint) error {
 	return s.db.Model(&model.User{}).Where("id = ?", id).
 		UpdateColumn("last_login_at", gorm.Expr("NOW()")).Error
+}
+
+func (s *userService) UpdateProfile(id uint, name, email string) (*model.User, error) {
+	user, err := s.FindByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if email != user.Email {
+		var exists int64
+		s.db.Model(&model.User{}).Where("email = ? AND id != ?", email, id).Count(&exists)
+		if exists > 0 {
+			return nil, pkg.ErrEmailExists
+		}
+	}
+
+	user.Name = name
+	user.Email = email
+	if err := s.db.Save(user).Error; err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (s *userService) ChangePassword(id uint, oldPassword, newPassword string) error {
+	user, err := s.FindByID(id)
+	if err != nil {
+		return err
+	}
+
+	if !pkg.CheckPassword(oldPassword, user.PasswordHash) {
+		return pkg.ErrPasswordWrong
+	}
+
+	hash, err := pkg.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	return s.db.Model(&model.User{}).Where("id = ?", id).
+		UpdateColumn("password_hash", hash).Error
 }

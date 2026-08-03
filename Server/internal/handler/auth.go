@@ -3,9 +3,9 @@ package handler
 import (
 	"net/http"
 
-	"qasir-crm/internal/model"
-	"qasir-crm/internal/pkg"
-	"qasir-crm/internal/service"
+	"app-crm/internal/model"
+	"app-crm/internal/pkg"
+	"app-crm/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

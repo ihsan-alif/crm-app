@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../lib/api'
-import type { Customer, ApiResponse, PaginatedResponse } from '../types'
-import { Search, Plus, Loader2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import type { Customer, PaginatedResponse } from '../types'
+import { Search, Plus, Loader2, Trash2, Pencil, ChevronLeft, ChevronRight, Upload, Download, FileDown } from 'lucide-react'
+import { downloadFile } from '../lib/api'
 
 export default function Customers() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -11,8 +12,13 @@ export default function Customers() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [showImport, setShowImport] = useState(false)
   const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', tag: '', notes: '' })
   const [saving, setSaving] = useState(false)
+  const [importResult, setImportResult] = useState<{ success: number; failed: number; errors: string[] } | null>(null)
+  const [importing, setImporting] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const perPage = 20
 
   const fetch = useCallback(async () => {
@@ -35,13 +41,30 @@ export default function Customers() {
     e.preventDefault()
     setSaving(true)
     try {
-      await api.post('/customers', form)
+      if (editingId) {
+        await api.put(`/customers/${editingId}`, form)
+      } else {
+        await api.post('/customers', form)
+      }
       setShowForm(false)
+      setEditingId(null)
       setForm({ name: '', phone: '', email: '', address: '', tag: '', notes: '' })
       fetch()
     } finally {
       setSaving(false)
     }
+  }
+
+  const openEdit = (c: Customer) => {
+    setForm({ name: c.name, phone: c.phone, email: c.email || '', address: c.address || '', tag: c.tag || '', notes: c.notes || '' })
+    setEditingId(c.id)
+    setShowForm(true)
+  }
+
+  const openCreate = () => {
+    setEditingId(null)
+    setForm({ name: '', phone: '', email: '', address: '', tag: '', notes: '' })
+    setShowForm(true)
   }
 
   const handleDelete = async (id: number) => {
@@ -50,18 +73,52 @@ export default function Customers() {
     fetch()
   }
 
+  const handleExport = () => {
+    downloadFile('/customers/export', 'pelanggan.csv')
+  }
+
+  const handleDownloadTemplate = () => {
+    downloadFile('/customers/template', 'template_pelanggan.csv')
+  }
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setImporting(true)
+    setImportResult(null)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await api.post('/customers/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setImportResult(res.data.data)
+    } catch {
+      setImportResult({ success: 0, failed: 1, errors: ['Gagal mengupload file'] })
+    } finally {
+      setImporting(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
   const totalPages = Math.ceil(total / perPage)
 
   return (
     <div className="p-4 md:p-6 pb-20 md:pb-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
         <h1 className="text-xl font-bold text-gray-800">Pelanggan</h1>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-700"
-        >
-          <Plus className="w-4 h-4" /> Tambah
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setShowImport(true)} className="flex items-center gap-1 border border-blue-600 text-blue-600 px-3 py-2 rounded-lg text-sm hover:bg-blue-50">
+            <Upload className="w-4 h-4" /> Import
+          </button>
+          <button onClick={() => handleExport()} className="flex items-center gap-1 border border-green-600 text-green-600 px-3 py-2 rounded-lg text-sm hover:bg-green-50">
+            <Download className="w-4 h-4" /> Export
+          </button>
+          <button onClick={openCreate} className="flex items-center gap-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-700">
+            <Plus className="w-4 h-4" /> Tambah
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2 mb-4">
@@ -89,7 +146,7 @@ export default function Customers() {
       {showForm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 w-full max-w-md space-y-3">
-            <h2 className="font-semibold text-lg">Tambah Pelanggan</h2>
+            <h2 className="font-semibold text-lg">{editingId ? 'Edit Pelanggan' : 'Tambah Pelanggan'}</h2>
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nama *" className="w-full border rounded-lg px-3 py-2 text-sm" required />
             <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="No WhatsApp *" className="w-full border rounded-lg px-3 py-2 text-sm" required />
             <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email" className="w-full border rounded-lg px-3 py-2 text-sm" />
@@ -102,12 +159,47 @@ export default function Customers() {
             </select>
             <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Catatan" className="w-full border rounded-lg px-3 py-2 text-sm" rows={2} />
             <div className="flex gap-2 pt-2">
-              <button type="button" onClick={() => setShowForm(false)} className="flex-1 border rounded-lg py-2 text-sm">Batal</button>
+              <button type="button" onClick={() => { setShowForm(false); setEditingId(null) }} className="flex-1 border rounded-lg py-2 text-sm">Batal</button>
               <button type="submit" disabled={saving} className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm hover:bg-blue-700 disabled:opacity-50">
                 {saving ? 'Menyimpan...' : 'Simpan'}
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {showImport && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md space-y-4">
+            <h2 className="font-semibold text-lg">Import Pelanggan dari CSV</h2>
+            <button onClick={handleDownloadTemplate} className="flex items-center gap-2 text-blue-600 text-sm hover:underline">
+              <FileDown className="w-4 h-4" /> Download template CSV
+            </button>
+            <p className="text-xs text-gray-500">Format: nama, no_wa, email, alamat, tag, catatan</p>
+
+            <input ref={fileRef} type="file" accept=".csv" onChange={handleImport} className="block w-full text-sm border rounded-lg p-2" />
+
+            {importing && <div className="flex items-center gap-2 text-blue-600 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Mengimport...</div>}
+
+            {importResult && (
+              <div className="space-y-2">
+                <p className="text-sm text-green-600">✓ {importResult.success} berhasil</p>
+                {importResult.failed > 0 && (
+                  <>
+                    <p className="text-sm text-red-600">✗ {importResult.failed} gagal</p>
+                    <div className="max-h-32 overflow-y-auto text-xs text-red-500 space-y-0.5 bg-red-50 p-2 rounded">
+                      {importResult.errors.map((e, i) => <p key={i}>{e}</p>)}
+                    </div>
+                  </>
+                )}
+                <button onClick={() => { setShowImport(false); setImportResult(null); fetch() }} className="w-full border rounded-lg py-2 text-sm">Selesai</button>
+              </div>
+            )}
+
+            {!importing && !importResult && (
+              <button onClick={() => setShowImport(false)} className="w-full border rounded-lg py-2 text-sm">Batal</button>
+            )}
+          </div>
         </div>
       )}
 
@@ -138,7 +230,10 @@ export default function Customers() {
                       <td className="px-4 py-3">
                         {c.tag && <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded">{c.tag}</span>}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 flex items-center gap-2">
+                        <button onClick={() => openEdit(c)} className="text-blue-500 hover:text-blue-700">
+                          <Pencil className="w-4 h-4" />
+                        </button>
                         <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:text-red-700">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -155,7 +250,10 @@ export default function Customers() {
                   <p className="text-sm text-gray-500">{c.phone}</p>
                   <div className="flex items-center gap-2 mt-1">
                     {c.tag && <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded">{c.tag}</span>}
-                    <button onClick={() => handleDelete(c.id)} className="text-red-500 ml-auto text-xs">Hapus</button>
+                    <div className="ml-auto flex items-center gap-2">
+                      <button onClick={() => openEdit(c)} className="text-blue-500 text-xs">Edit</button>
+                      <button onClick={() => handleDelete(c.id)} className="text-red-500 text-xs">Hapus</button>
+                    </div>
                   </div>
                 </div>
               ))}

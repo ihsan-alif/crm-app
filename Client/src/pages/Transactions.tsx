@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../lib/api'
 import type { Transaction, Customer, ApiResponse, PaginatedResponse } from '../types'
-import { Plus, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Loader2, ChevronLeft, ChevronRight, Download, Printer, Pencil } from 'lucide-react'
+import { downloadFile } from '../lib/api'
 
 export default function Transactions() {
   const [list, setList] = useState<Transaction[]>([])
@@ -10,6 +11,7 @@ export default function Transactions() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -36,8 +38,27 @@ export default function Transactions() {
   useEffect(() => { fetch() }, [fetch])
 
   const openForm = async () => {
-    const res = await api.get<PaginatedResponse<Customer>>('/customers?per_page=100')
-    setCustomers(res.data.data)
+    setEditingId(null)
+    setForm({ customer_id: 0, status: 'unpaid', notes: '', items: [{ name: '', qty: 1, price: 0 }] })
+    if (customers.length === 0) {
+      const res = await api.get<PaginatedResponse<Customer>>('/customers?per_page=100')
+      setCustomers(res.data.data)
+    }
+    setShowForm(true)
+  }
+
+  const openEdit = async (t: Transaction) => {
+    setEditingId(t.id)
+    setForm({
+      customer_id: t.customer_id,
+      status: t.status,
+      notes: t.notes || '',
+      items: t.items?.length ? t.items.map((i) => ({ name: i.name, qty: i.qty, price: i.price })) : [{ name: '', qty: 1, price: 0 }],
+    })
+    if (customers.length === 0) {
+      const res = await api.get<PaginatedResponse<Customer>>('/customers?per_page=100')
+      setCustomers(res.data.data)
+    }
     setShowForm(true)
   }
 
@@ -63,11 +84,19 @@ export default function Transactions() {
     e.preventDefault()
     setSaving(true)
     try {
-      await api.post('/transactions', {
-        ...form,
-        items: form.items.map(i => ({ ...i, subtotal: i.qty * i.price })),
-      })
+      if (editingId) {
+        await api.put(`/transactions/${editingId}`, {
+          ...form,
+          items: form.items.map(i => ({ ...i, subtotal: i.qty * i.price })),
+        })
+      } else {
+        await api.post('/transactions', {
+          ...form,
+          items: form.items.map(i => ({ ...i, subtotal: i.qty * i.price })),
+        })
+      }
       setShowForm(false)
+      setEditingId(null)
       setForm({ customer_id: 0, status: 'unpaid', notes: '', items: [{ name: '', qty: 1, price: 0 }] })
       fetch()
     } finally {
@@ -75,21 +104,26 @@ export default function Transactions() {
     }
   }
 
-  const toggleStatus = async (id: number, current: string) => {
-    const newStatus = current === 'paid' ? 'unpaid' : 'paid'
-    await api.put(`/transactions/${id}/status`, { status: newStatus })
-    fetch()
-  }
-
   const totalPages = Math.ceil(total / perPage)
+
+  const statusBadge = (s: string) => (
+    <span className={`text-xs px-2 py-1 rounded ${s === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+      {s === 'paid' ? 'Lunas' : 'Belum Lunas'}
+    </span>
+  )
 
   return (
     <div className="p-4 md:p-6 pb-20 md:pb-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-gray-800">Transaksi</h1>
-        <button onClick={openForm} className="flex items-center gap-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-700">
-          <Plus className="w-4 h-4" /> Baru
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => downloadFile('/transactions/export', 'transaksi.csv')} className="flex items-center gap-1 border border-green-600 text-green-600 px-3 py-2 rounded-lg text-sm hover:bg-green-50">
+            <Download className="w-4 h-4" /> Export
+          </button>
+          <button onClick={openForm} className="flex items-center gap-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-700">
+            <Plus className="w-4 h-4" /> Baru
+          </button>
+        </div>
       </div>
 
       <div className="mb-4">
@@ -103,7 +137,7 @@ export default function Transactions() {
       {showForm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 w-full max-w-lg space-y-3 max-h-[90vh] overflow-y-auto">
-            <h2 className="font-semibold text-lg">Transaksi Baru</h2>
+            <h2 className="font-semibold text-lg">{editingId ? 'Edit Transaksi' : 'Transaksi Baru'}</h2>
 
             <select value={form.customer_id} onChange={(e) => setForm({ ...form, customer_id: Number(e.target.value) })} className="w-full border rounded-lg px-3 py-2 text-sm" required>
               <option value="">Pilih pelanggan</option>
@@ -137,7 +171,7 @@ export default function Transactions() {
             <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Catatan" className="w-full border rounded-lg px-3 py-2 text-sm" rows={2} />
 
             <div className="flex gap-2 pt-2">
-              <button type="button" onClick={() => setShowForm(false)} className="flex-1 border rounded-lg py-2 text-sm">Batal</button>
+              <button type="button" onClick={() => { setShowForm(false); setEditingId(null) }} className="flex-1 border rounded-lg py-2 text-sm">Batal</button>
               <button type="submit" disabled={saving} className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm hover:bg-blue-700 disabled:opacity-50">
                 {saving ? 'Menyimpan...' : 'Simpan'}
               </button>
@@ -161,6 +195,7 @@ export default function Transactions() {
                     <th className="px-4 py-3 font-medium text-gray-600">Tanggal</th>
                     <th className="px-4 py-3 font-medium text-gray-600">Total</th>
                     <th className="px-4 py-3 font-medium text-gray-600">Status</th>
+                    <th className="px-4 py-3 font-medium text-gray-600"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -169,10 +204,21 @@ export default function Transactions() {
                       <td className="px-4 py-3 font-mono text-xs">{t.number}</td>
                       <td className="px-4 py-3 text-gray-600">{new Date(t.created_at).toLocaleDateString('id-ID')}</td>
                       <td className="px-4 py-3">Rp {t.total.toLocaleString('id-ID')}</td>
+                      <td className="px-4 py-3">{statusBadge(t.status)}</td>
                       <td className="px-4 py-3">
-                        <button onClick={() => toggleStatus(t.id, t.status)} className={`text-xs px-2 py-1 rounded ${t.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {t.status === 'paid' ? 'Lunas' : 'Belum Lunas'}
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button onClick={() => openEdit(t)} className="text-blue-500 hover:text-blue-700" aria-label="Edit transaksi">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <a
+                            href={`/transactions/${t.id}/print`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs"
+                          >
+                            <Printer className="w-3.5 h-3.5" /> Cetak
+                          </a>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -184,12 +230,18 @@ export default function Transactions() {
                 <div key={t.id} className="px-4 py-3">
                   <p className="font-mono text-xs text-gray-500">{t.number}</p>
                   <p className="font-medium">Rp {t.total.toLocaleString('id-ID')}</p>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs text-gray-400">{new Date(t.created_at).toLocaleDateString('id-ID')}</span>
-                    <button onClick={() => toggleStatus(t.id, t.status)} className={`text-xs px-2 py-1 rounded ${t.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {t.status === 'paid' ? 'Lunas' : 'Belum Lunas'}
-                    </button>
-                  </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <div className="flex items-center gap-3">
+                        {statusBadge(t.status)}
+                        <button onClick={() => openEdit(t)} className="text-blue-500 text-xs flex items-center gap-0.5">
+                          <Pencil className="w-3 h-3" /> Edit
+                        </button>
+                        <a href={`/transactions/${t.id}/print`} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-xs flex items-center gap-0.5">
+                          <Printer className="w-3 h-3" /> Cetak
+                        </a>
+                      </div>
+                      <span className="text-xs text-gray-400">{new Date(t.created_at).toLocaleDateString('id-ID')}</span>
+                    </div>
                 </div>
               ))}
             </div>

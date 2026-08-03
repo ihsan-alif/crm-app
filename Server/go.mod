@@ -1,4 +1,4 @@
-module qasir-crm
+module app-crm
 
 go 1.25
 

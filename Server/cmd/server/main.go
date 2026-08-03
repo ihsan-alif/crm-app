@@ -5,13 +5,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"qasir-crm/internal/config"
-	"qasir-crm/internal/handler"
-	"qasir-crm/internal/middleware"
-	"qasir-crm/internal/pkg"
-	"qasir-crm/internal/repository"
-	"qasir-crm/internal/router"
-	"qasir-crm/internal/service"
+	"app-crm/internal/config"
+	"app-crm/internal/handler"
+	"app-crm/internal/middleware"
+	"app-crm/internal/pkg"
+	"app-crm/internal/repository"
+	"app-crm/internal/router"
+	"app-crm/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
@@ -42,17 +42,21 @@ func main() {
 
 	tenantSvc := service.NewTenantService(db)
 	userSvc := service.NewUserService(db)
-	authSvc := service.NewAuthService(userSvc, jwtService, tenantSvc)
+	authSvc := service.NewAuthService(db, userSvc, jwtService, tenantSvc)
 	customerSvc := service.NewCustomerService(db)
 	transactionSvc := service.NewTransactionService(db)
+	whatsAppSvc := service.NewWhatsAppService(db)
+	activitySvc := service.NewActivityLogService(db)
 
 	authHandler := handler.NewAuthHandler(authSvc)
 	userHandler := handler.NewUserHandler(userSvc)
 	customerHandler := handler.NewCustomerHandler(customerSvc)
 	transactionHandler := handler.NewTransactionHandler(transactionSvc)
 	dashboardHandler := handler.NewDashboardHandler(customerSvc, transactionSvc)
+	whatsAppHandler := handler.NewWhatsAppHandler(whatsAppSvc, cfg.WAVerifyToken)
+	activityLogHandler := handler.NewActivityLogHandler(activitySvc)
 
-	r := router.Setup(log, jwtService, authHandler, userHandler, customerHandler, transactionHandler, dashboardHandler)
+	r := router.Setup(log, jwtService, authHandler, userHandler, customerHandler, transactionHandler, dashboardHandler, whatsAppHandler, activityLogHandler)
 	r.Use(middleware.CORS(cfg.CORSOrigins))
 
 	go func() {

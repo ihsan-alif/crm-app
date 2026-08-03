@@ -13,6 +13,7 @@ var (
 	ErrEmailExists  = errors.New("email sudah terdaftar")
 	ErrInvalidCreds = errors.New("email atau password salah")
 	ErrNotActive    = errors.New("akun tidak aktif")
+	ErrPasswordWrong = errors.New("password lama salah")
 )
 
 func ParseValidationErrors(err error) []FieldError {

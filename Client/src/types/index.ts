@@ -46,6 +46,7 @@ export interface Transaction {
   notes: string | null
   items: TransactionItem[]
   created_at: string
+  customer?: { id: number; name: string; phone: string }
 }
 
 export interface ApiResponse<T> {
@@ -70,4 +71,55 @@ export interface DashboardSummary {
   total_customers: number
   total_transactions: number
   total_revenue: number
+}
+
+export interface DashboardData {
+  summary: DashboardSummary
+  recent_customers: Customer[]
+  recent_transactions: Transaction[]
+  revenue_chart: { date: string; total: number }[]
+}
+
+export interface WAConfig {
+  phone_number_id: string
+  token: string
+  is_active: boolean
+}
+
+export interface WABroadcast {
+  id: number
+  title: string
+  message: string
+  target_tag: string | null
+  target_all: boolean
+  status: 'draft' | 'sending' | 'sent' | 'failed'
+  total: number
+  sent: number
+  failed: number
+  sent_at: string | null
+  created_at: string
+}
+
+export interface WAMessage {
+  id: number
+  customer_id: number
+  phone: string
+  message: string
+  status: 'pending' | 'sent' | 'failed'
+  wa_message_id: string | null
+  error_msg: string | null
+  sent_at: string | null
+  created_at: string
+  customer?: { name: string; phone: string }
+}
+
+export interface ActivityLog {
+  id: number
+  user_id: number | null
+  action: string
+  entity: string
+  entity_id: number | null
+  description: string
+  created_at: string
+  user?: { name: string }
 }
