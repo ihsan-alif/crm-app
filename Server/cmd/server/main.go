@@ -44,6 +44,7 @@ func main() {
 	userSvc := service.NewUserService(db)
 	authSvc := service.NewAuthService(db, userSvc, jwtService, tenantSvc)
 	customerSvc := service.NewCustomerService(db)
+	productSvc := service.NewProductService(db)
 	transactionSvc := service.NewTransactionService(db)
 	whatsAppSvc := service.NewWhatsAppService(db)
 	activitySvc := service.NewActivityLogService(db)
@@ -51,12 +52,13 @@ func main() {
 	authHandler := handler.NewAuthHandler(authSvc)
 	userHandler := handler.NewUserHandler(userSvc)
 	customerHandler := handler.NewCustomerHandler(customerSvc)
+	productHandler := handler.NewProductHandler(productSvc)
 	transactionHandler := handler.NewTransactionHandler(transactionSvc)
 	dashboardHandler := handler.NewDashboardHandler(customerSvc, transactionSvc)
 	whatsAppHandler := handler.NewWhatsAppHandler(whatsAppSvc, cfg.WAVerifyToken)
 	activityLogHandler := handler.NewActivityLogHandler(activitySvc)
 
-	r := router.Setup(log, jwtService, authHandler, userHandler, customerHandler, transactionHandler, dashboardHandler, whatsAppHandler, activityLogHandler)
+	r := router.Setup(log, jwtService, authHandler, userHandler, customerHandler, productHandler, transactionHandler, dashboardHandler, whatsAppHandler, activityLogHandler)
 	r.Use(middleware.CORS(cfg.CORSOrigins))
 
 	go func() {

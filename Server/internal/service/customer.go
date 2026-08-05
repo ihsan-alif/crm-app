@@ -1,7 +1,6 @@
 package service
 
 import (
-	"encoding/csv"
 	"fmt"
 	"math"
 	"strings"
@@ -26,7 +25,7 @@ type CustomerService interface {
 	Delete(tenantID, userID, id uint) error
 	CountByTenant(tenantID uint) (int64, error)
 	ImportCSV(tenantID, userID uint, records [][]string) (*ImportResult, error)
-	ExportCSV(tenantID uint) (string, error)
+	ExportData(tenantID uint) ([]string, [][]string, error)
 	All(tenantID uint) ([]model.Customer, error)
 	Recent(tenantID uint, limit int) ([]model.Customer, error)
 }
@@ -228,15 +227,14 @@ func (s *customerService) ImportCSV(tenantID, userID uint, records [][]string) (
 	return result, nil
 }
 
-func (s *customerService) ExportCSV(tenantID uint) (string, error) {
+func (s *customerService) ExportData(tenantID uint) ([]string, [][]string, error) {
 	customers, err := s.All(tenantID)
 	if err != nil {
-		return "", err
+		return nil, nil, err
 	}
 
-	var b strings.Builder
-	writer := csv.NewWriter(&b)
-	writer.Write([]string{"nama", "no_wa", "email", "alamat", "tag", "catatan", "sumber", "tanggal_daftar"})
+	headers := []string{"nama", "no_wa", "email", "alamat", "tag", "catatan", "sumber", "tanggal_daftar"}
+	rows := make([][]string, 0, len(customers))
 
 	for _, c := range customers {
 		email := ""
@@ -255,14 +253,13 @@ func (s *customerService) ExportCSV(tenantID uint) (string, error) {
 		if c.Notes != nil {
 			notes = *c.Notes
 		}
-		writer.Write([]string{
+		rows = append(rows, []string{
 			c.Name, c.Phone, email, address, tag, notes, c.Source,
 			c.CreatedAt.Format("2006-01-02"),
 		})
 	}
-	writer.Flush()
 
-	return b.String(), writer.Error()
+	return headers, rows, nil
 }
 
 func calcPages(total int, perPage int) int {

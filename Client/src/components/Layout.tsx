@@ -1,11 +1,12 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
-import { LayoutDashboard, Users, Receipt, MessageSquare, Settings, LogOut, Moon, Sun, History } from 'lucide-react'
+import { LayoutDashboard, Users, Package, Receipt, MessageSquare, Settings, LogOut, Moon, Sun, History } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/customers', icon: Users, label: 'Pelanggan' },
+  { to: '/products', icon: Package, label: 'Produk' },
   { to: '/transactions', icon: Receipt, label: 'Transaksi' },
   { to: '/wa', icon: MessageSquare, label: 'WhatsApp' },
   { to: '/activity-logs', icon: History, label: 'Aktivitas' },
@@ -20,7 +21,7 @@ export default function Layout() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex">
       <aside className="hidden md:flex flex-col w-56 bg-white dark:bg-gray-800 border-r dark:border-gray-700 shadow-sm">
         <div className="p-4 border-b dark:border-gray-700 flex items-center justify-between">
-          <h1 className="font-bold text-lg text-blue-600 dark:text-blue-400">Qasir CRM</h1>
+          <h1 className="font-bold text-lg text-blue-600 dark:text-blue-400">CRM App</h1>
           <button onClick={toggle} className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
             {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
@@ -59,7 +60,7 @@ export default function Layout() {
 
       <div className="flex-1 flex flex-col">
         <header className="md:hidden bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 py-3 flex items-center justify-between">
-          <h1 className="font-bold text-blue-600 dark:text-blue-400">Qasir CRM</h1>
+          <h1 className="font-bold text-blue-600 dark:text-blue-400">CRM App</h1>
           <div className="flex items-center gap-2 text-sm">
             <button onClick={toggle} className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}

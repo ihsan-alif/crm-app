@@ -36,7 +36,7 @@ export default function Register() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-blue-600">Qasir CRM</h1>
+          <h1 className="text-3xl font-bold text-blue-600">CRM App</h1>
           <p className="text-gray-500 mt-1">Daftar gratis, kelola pelanggan lebih baik</p>
         </div>
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-md space-y-4">

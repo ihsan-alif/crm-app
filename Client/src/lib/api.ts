@@ -43,7 +43,7 @@ export default api
 
 export async function downloadFile(url: string, filename: string) {
   const res = await api.get(url, { responseType: 'blob' })
-  const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' })
+  const blob = new Blob([res.data], { type: res.data.type || 'application/octet-stream' })
   const urlObj = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = urlObj

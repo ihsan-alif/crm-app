@@ -1,6 +1,8 @@
 package router
 
 import (
+	"time"
+
 	"app-crm/internal/handler"
 	"app-crm/internal/middleware"
 	"app-crm/internal/pkg"
@@ -15,6 +17,7 @@ func Setup(
 	authHandler *handler.AuthHandler,
 	userHandler *handler.UserHandler,
 	customerHandler *handler.CustomerHandler,
+	productHandler *handler.ProductHandler,
 	transactionHandler *handler.TransactionHandler,
 	dashboardHandler *handler.DashboardHandler,
 	whatsAppHandler *handler.WhatsAppHandler,
@@ -32,9 +35,9 @@ func Setup(
 	{
 		auth := api.Group("/auth")
 		{
-			auth.POST("/register", authHandler.Register)
-			auth.POST("/login", authHandler.Login)
-			auth.POST("/refresh", authHandler.RefreshToken)
+			auth.POST("/register", middleware.RateLimit(middleware.NewRateLimiter(5, 10*time.Minute), "register"), authHandler.Register)
+			auth.POST("/login", middleware.RateLimit(middleware.NewRateLimiter(10, time.Minute), "login"), authHandler.Login)
+			auth.POST("/refresh", middleware.RateLimit(middleware.NewRateLimiter(30, time.Minute), "refresh"), authHandler.RefreshToken)
 		}
 
 		protected := api.Group("")
@@ -68,6 +71,15 @@ func Setup(
 				transactions.PUT("/:id", transactionHandler.Update)
 				transactions.PUT("/:id/status", transactionHandler.UpdateStatus)
 				transactions.DELETE("/:id", transactionHandler.Delete)
+			}
+
+			products := protected.Group("/products")
+			{
+				products.GET("", productHandler.List)
+				products.GET("/:id", productHandler.Get)
+				products.POST("", productHandler.Create)
+				products.PUT("/:id", productHandler.Update)
+				products.DELETE("/:id", productHandler.Delete)
 			}
 
 			protected.GET("/dashboard", dashboardHandler.Index)

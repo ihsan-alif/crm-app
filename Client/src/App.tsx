@@ -7,6 +7,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import Customers from './pages/Customers'
+import Products from './pages/Products'
 import Transactions from './pages/Transactions'
 import TransactionPrint from './pages/TransactionPrint'
 import WhatsApp from './pages/WhatsApp'
@@ -25,6 +26,7 @@ export default function App() {
           <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/customers" element={<Customers />} />
+            <Route path="/products" element={<Products />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/wa" element={<WhatsApp />} />
             <Route path="/activity-logs" element={<ActivityLogs />} />

@@ -1,9 +1,7 @@
 package service
 
 import (
-	"encoding/csv"
 	"fmt"
-	"strings"
 	"time"
 
 	"app-crm/internal/model"
@@ -26,7 +24,7 @@ type TransactionService interface {
 	Delete(tenantID, userID, id uint) error
 	CountByTenant(tenantID uint) (int64, error)
 	TotalRevenueByTenant(tenantID uint) (float64, error)
-	ExportCSV(tenantID uint) (string, error)
+	ExportData(tenantID uint) ([]string, [][]string, error)
 	Recent(tenantID uint, limit int) ([]model.Transaction, error)
 	RevenueByDay(tenantID uint, days int) ([]RevenuePoint, error)
 }
@@ -238,26 +236,25 @@ func (s *transactionService) RevenueByDay(tenantID uint, days int) ([]RevenuePoi
 	return results, nil
 }
 
-func (s *transactionService) ExportCSV(tenantID uint) (string, error) {
+func (s *transactionService) ExportData(tenantID uint) ([]string, [][]string, error) {
 	var transactions []model.Transaction
 	err := s.db.Preload("Items").
 		Where("tenant_id = ?", tenantID).
 		Order("created_at DESC").
 		Find(&transactions).Error
 	if err != nil {
-		return "", err
+		return nil, nil, err
 	}
 
-	var b strings.Builder
-	writer := csv.NewWriter(&b)
-	writer.Write([]string{"no_transaksi", "tanggal", "pelanggan_id", "total", "status", "catatan"})
+	headers := []string{"no_transaksi", "tanggal", "pelanggan_id", "total", "status", "catatan"}
+	rows := make([][]string, 0, len(transactions))
 
 	for _, t := range transactions {
 		notes := ""
 		if t.Notes != nil {
 			notes = *t.Notes
 		}
-		writer.Write([]string{
+		rows = append(rows, []string{
 			t.Number,
 			t.CreatedAt.Format("2006-01-02"),
 			fmt.Sprintf("%d", t.CustomerID),
@@ -266,9 +263,8 @@ func (s *transactionService) ExportCSV(tenantID uint) (string, error) {
 			notes,
 		})
 	}
-	writer.Flush()
 
-	return b.String(), writer.Error()
+	return headers, rows, nil
 }
 
 func generateTransactionNumber() string {

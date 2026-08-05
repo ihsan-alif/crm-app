@@ -133,16 +133,15 @@ func (h *TransactionHandler) Update(c *gin.Context) {
 
 func (h *TransactionHandler) ExportCSV(c *gin.Context) {
 	tenantID := c.GetUint("tenant_id")
+	format := c.DefaultQuery("format", "csv")
 
-	csvData, err := h.transactionService.ExportCSV(tenantID)
+	headers, rows, err := h.transactionService.ExportData(tenantID)
 	if err != nil {
 		pkg.InternalError(c)
 		return
 	}
 
-	c.Header("Content-Type", "text/csv; charset=utf-8")
-	c.Header("Content-Disposition", "attachment; filename=transaksi.csv")
-	c.String(200, csvData)
+	serveSpreadsheet(c, format, "transaksi", headers, rows)
 }
 
 func (h *TransactionHandler) Delete(c *gin.Context) {

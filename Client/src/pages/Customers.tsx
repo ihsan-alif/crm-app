@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../lib/api'
 import type { Customer, PaginatedResponse } from '../types'
-import { Search, Plus, Loader2, Trash2, Pencil, ChevronLeft, ChevronRight, Upload, Download, FileDown } from 'lucide-react'
-import { downloadFile } from '../lib/api'
+import { Search, Plus, Loader2, Trash2, Pencil, ChevronLeft, ChevronRight, Upload } from 'lucide-react'
+import ExportButton from '../components/ExportButton'
 
 export default function Customers() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -73,14 +73,6 @@ export default function Customers() {
     fetch()
   }
 
-  const handleExport = () => {
-    downloadFile('/customers/export', 'pelanggan.csv')
-  }
-
-  const handleDownloadTemplate = () => {
-    downloadFile('/customers/template', 'template_pelanggan.csv')
-  }
-
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -112,9 +104,7 @@ export default function Customers() {
           <button onClick={() => setShowImport(true)} className="flex items-center gap-1 border border-blue-600 text-blue-600 px-3 py-2 rounded-lg text-sm hover:bg-blue-50">
             <Upload className="w-4 h-4" /> Import
           </button>
-          <button onClick={() => handleExport()} className="flex items-center gap-1 border border-green-600 text-green-600 px-3 py-2 rounded-lg text-sm hover:bg-green-50">
-            <Download className="w-4 h-4" /> Export
-          </button>
+          <ExportButton url="/customers/export" baseName="pelanggan" />
           <button onClick={openCreate} className="flex items-center gap-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-700">
             <Plus className="w-4 h-4" /> Tambah
           </button>
@@ -145,19 +135,37 @@ export default function Customers() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 w-full max-w-md space-y-3">
+          <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 w-full max-w-md space-y-4">
             <h2 className="font-semibold text-lg">{editingId ? 'Edit Pelanggan' : 'Tambah Pelanggan'}</h2>
-            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nama *" className="w-full border rounded-lg px-3 py-2 text-sm" required />
-            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="No WhatsApp *" className="w-full border rounded-lg px-3 py-2 text-sm" required />
-            <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email" className="w-full border rounded-lg px-3 py-2 text-sm" />
-            <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Alamat" className="w-full border rounded-lg px-3 py-2 text-sm" />
-            <select value={form.tag} onChange={(e) => setForm({ ...form, tag: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm">
-              <option value="">Pilih tag</option>
-              <option value="reguler">Reguler</option>
-              <option value="vip">VIP</option>
-              <option value="prospek">Prospek</option>
-            </select>
-            <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Catatan" className="w-full border rounded-lg px-3 py-2 text-sm" rows={2} />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nama *</label>
+              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nama lengkap" className="w-full border rounded-lg px-3 py-2 text-sm" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">No WhatsApp *</label>
+              <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="08xxxxxxxxxx" className="w-full border rounded-lg px-3 py-2 text-sm" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="nama@email.com" className="w-full border rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Alamat</label>
+              <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Alamat lengkap" className="w-full border rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tag</label>
+              <select value={form.tag} onChange={(e) => setForm({ ...form, tag: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm">
+                <option value="">Pilih tag</option>
+                <option value="reguler">Reguler</option>
+                <option value="vip">VIP</option>
+                <option value="prospek">Prospek</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Catatan</label>
+              <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Catatan tambahan" className="w-full border rounded-lg px-3 py-2 text-sm" rows={2} />
+            </div>
             <div className="flex gap-2 pt-2">
               <button type="button" onClick={() => { setShowForm(false); setEditingId(null) }} className="flex-1 border rounded-lg py-2 text-sm">Batal</button>
               <button type="submit" disabled={saving} className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm hover:bg-blue-700 disabled:opacity-50">
@@ -171,13 +179,17 @@ export default function Customers() {
       {showImport && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md space-y-4">
-            <h2 className="font-semibold text-lg">Import Pelanggan dari CSV</h2>
-            <button onClick={handleDownloadTemplate} className="flex items-center gap-2 text-blue-600 text-sm hover:underline">
-              <FileDown className="w-4 h-4" /> Download template CSV
-            </button>
+            <h2 className="font-semibold text-lg">Import Pelanggan</h2>
+            <div>
+              <span className="block text-xs text-gray-500 mb-1">Download template:</span>
+              <div className="flex gap-4">
+                <ExportButton url="/customers/template" baseName="template_pelanggan" label="CSV" format="csv" />
+                <ExportButton url="/customers/template" baseName="template_pelanggan" label="Excel" format="xlsx" />
+              </div>
+            </div>
             <p className="text-xs text-gray-500">Format: nama, no_wa, email, alamat, tag, catatan</p>
 
-            <input ref={fileRef} type="file" accept=".csv" onChange={handleImport} className="block w-full text-sm border rounded-lg p-2" />
+            <input ref={fileRef} type="file" accept=".csv,.xlsx" onChange={handleImport} className="block w-full text-sm border rounded-lg p-2" />
 
             {importing && <div className="flex items-center gap-2 text-blue-600 text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Mengimport...</div>}
 

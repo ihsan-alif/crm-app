@@ -29,6 +29,18 @@ export interface Customer {
   created_at: string
 }
 
+export interface Product {
+  id: number
+  tenant_id: number
+  name: string
+  price: number
+  sku: string | null
+  description: string | null
+  category: string | null
+  is_active: boolean
+  created_at: string
+}
+
 export interface TransactionItem {
   id?: number
   name: string

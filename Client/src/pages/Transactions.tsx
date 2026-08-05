@@ -1,8 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../lib/api'
-import type { Transaction, Customer, ApiResponse, PaginatedResponse } from '../types'
-import { Plus, Loader2, ChevronLeft, ChevronRight, Download, Printer, Pencil } from 'lucide-react'
-import { downloadFile } from '../lib/api'
+import type { Transaction, Customer, Product, PaginatedResponse } from '../types'
+import { Plus, Loader2, ChevronLeft, ChevronRight, Printer, Pencil } from 'lucide-react'
+import ExportButton from '../components/ExportButton'
+
+interface ItemForm {
+  name: string
+  qty: number
+  price: number
+  search: string
+  open: boolean
+}
 
 export default function Transactions() {
   const [list, setList] = useState<Transaction[]>([])
@@ -13,13 +21,21 @@ export default function Transactions() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    customer_id: number
+    status: 'paid' | 'unpaid'
+    notes: string
+    items: ItemForm[]
+  }>({
     customer_id: 0,
-    status: 'unpaid' as 'paid' | 'unpaid',
+    status: 'unpaid',
     notes: '',
-    items: [{ name: '', qty: 1, price: 0 }],
+    items: [{ name: '', qty: 1, price: 0, search: '', open: false }],
   })
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [customerOpen, setCustomerOpen] = useState(false)
   const perPage = 20
 
   const fetch = useCallback(async () => {
@@ -39,10 +55,16 @@ export default function Transactions() {
 
   const openForm = async () => {
     setEditingId(null)
-    setForm({ customer_id: 0, status: 'unpaid', notes: '', items: [{ name: '', qty: 1, price: 0 }] })
+    setForm({ customer_id: 0, status: 'unpaid', notes: '', items: [{ name: '', qty: 1, price: 0, search: '', open: false }] })
+    setCustomerSearch('')
+    setCustomerOpen(false)
     if (customers.length === 0) {
       const res = await api.get<PaginatedResponse<Customer>>('/customers?per_page=100')
       setCustomers(res.data.data)
+    }
+    if (products.length === 0) {
+      const res = await api.get<PaginatedResponse<Product>>('/products?per_page=100')
+      setProducts(res.data.data)
     }
     setShowForm(true)
   }
@@ -53,16 +75,24 @@ export default function Transactions() {
       customer_id: t.customer_id,
       status: t.status,
       notes: t.notes || '',
-      items: t.items?.length ? t.items.map((i) => ({ name: i.name, qty: i.qty, price: i.price })) : [{ name: '', qty: 1, price: 0 }],
+      items: t.items?.length
+        ? t.items.map((i) => ({ name: i.name, qty: i.qty, price: i.price, search: i.name, open: false }))
+        : [{ name: '', qty: 1, price: 0, search: '', open: false }],
     })
+    setCustomerSearch(t.customer ? `${t.customer.name} - ${t.customer.phone}` : '')
+    setCustomerOpen(false)
     if (customers.length === 0) {
       const res = await api.get<PaginatedResponse<Customer>>('/customers?per_page=100')
       setCustomers(res.data.data)
     }
+    if (products.length === 0) {
+      const res = await api.get<PaginatedResponse<Product>>('/products?per_page=100')
+      setProducts(res.data.data)
+    }
     setShowForm(true)
   }
 
-  const addItem = () => setForm({ ...form, items: [...form.items, { name: '', qty: 1, price: 0 }] })
+  const addItem = () => setForm({ ...form, items: [...form.items, { name: '', qty: 1, price: 0, search: '', open: false }] })
   const removeItem = (idx: number) => {
     if (form.items.length <= 1) return
     setForm({ ...form, items: form.items.filter((_, i) => i !== idx) })
@@ -78,7 +108,35 @@ export default function Transactions() {
     setForm({ ...form, items })
   }
 
+  const updateItemSearch = (idx: number, value: string) => {
+    const items = form.items.map((item, i) =>
+      i === idx ? { ...item, search: value, name: value, open: true } : { ...item, open: false }
+    )
+    setForm({ ...form, items })
+  }
+
+  const setItemOpen = (idx: number, open: boolean) => {
+    const items = form.items.map((item, i) => (i === idx ? { ...item, open } : { ...item, open: false }))
+    setForm({ ...form, items })
+  }
+
+  const selectProduct = (idx: number, p: Product) => {
+    const items = form.items.map((item, i) =>
+      i === idx ? { ...item, name: p.name, price: p.price, search: p.name, open: false } : item
+    )
+    setForm({ ...form, items })
+  }
+
   const totalForm = form.items.reduce((sum, i) => sum + i.qty * i.price, 0)
+
+  const filteredCustomers = customers.filter((c) =>
+    (c.name + ' ' + c.phone).toLowerCase().includes(customerSearch.toLowerCase())
+  )
+
+  const filteredProducts = (search: string) =>
+    products.filter((p) =>
+      (p.name + ' ' + (p.sku || '')).toLowerCase().includes(search.toLowerCase())
+    )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -97,7 +155,7 @@ export default function Transactions() {
       }
       setShowForm(false)
       setEditingId(null)
-      setForm({ customer_id: 0, status: 'unpaid', notes: '', items: [{ name: '', qty: 1, price: 0 }] })
+      setForm({ customer_id: 0, status: 'unpaid', notes: '', items: [{ name: '', qty: 1, price: 0, search: '', open: false }] })
       fetch()
     } finally {
       setSaving(false)
@@ -117,9 +175,7 @@ export default function Transactions() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-gray-800">Transaksi</h1>
         <div className="flex gap-2">
-          <button onClick={() => downloadFile('/transactions/export', 'transaksi.csv')} className="flex items-center gap-1 border border-green-600 text-green-600 px-3 py-2 rounded-lg text-sm hover:bg-green-50">
-            <Download className="w-4 h-4" /> Export
-          </button>
+          <ExportButton url="/transactions/export" baseName="transaksi" />
           <button onClick={openForm} className="flex items-center gap-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-700">
             <Plus className="w-4 h-4" /> Baru
           </button>
@@ -136,39 +192,112 @@ export default function Transactions() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 w-full max-w-lg space-y-3 max-h-[90vh] overflow-y-auto">
+          <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
             <h2 className="font-semibold text-lg">{editingId ? 'Edit Transaksi' : 'Transaksi Baru'}</h2>
 
-            <select value={form.customer_id} onChange={(e) => setForm({ ...form, customer_id: Number(e.target.value) })} className="w-full border rounded-lg px-3 py-2 text-sm" required>
-              <option value="">Pilih pelanggan</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>{c.name} - {c.phone}</option>
-              ))}
-            </select>
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pelanggan *</label>
+              <input
+                value={customerSearch}
+                onChange={(e) => { setCustomerSearch(e.target.value); setForm({ ...form, customer_id: 0 }); setCustomerOpen(true) }}
+                onFocus={() => setCustomerOpen(true)}
+                placeholder="Ketik untuk mencari atau pilih pelanggan..."
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+              {customerOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setCustomerOpen(false)} />
+                  <div className="absolute z-20 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {filteredCustomers.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-gray-400">Tidak ada pelanggan</div>
+                    ) : (
+                      filteredCustomers.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => { setForm({ ...form, customer_id: c.id }); setCustomerSearch(`${c.name} - ${c.phone}`); setCustomerOpen(false) }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50"
+                        >
+                          <span className="font-medium">{c.name}</span>
+                          <span className="text-gray-500 text-xs ml-2">{c.phone}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Item</span>
                 <button type="button" onClick={addItem} className="text-blue-600 text-sm">+ Tambah item</button>
               </div>
               {form.items.map((item, idx) => (
-                <div key={idx} className="flex gap-2 items-start">
-                  <input value={item.name} onChange={(e) => updateItem(idx, 'name', e.target.value)} placeholder="Nama item" className="flex-1 border rounded-lg px-3 py-2 text-sm" required />
-                  <input type="number" value={item.qty} onChange={(e) => updateItem(idx, 'qty', Number(e.target.value))} className="w-16 border rounded-lg px-3 py-2 text-sm" min={1} required />
-                  <input type="number" value={item.price} onChange={(e) => updateItem(idx, 'price', Number(e.target.value))} className="w-24 border rounded-lg px-3 py-2 text-sm" min={0} required />
-                  <button type="button" onClick={() => removeItem(idx)} className="text-red-500 px-1 py-2 text-sm">×</button>
+                <div key={idx} className="border rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-500">Item {idx + 1}</span>
+                    <button type="button" onClick={() => removeItem(idx)} className="text-red-500 text-sm">Hapus</button>
+                  </div>
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Produk / Nama Item *</label>
+                    <input
+                      value={item.search}
+                      onChange={(e) => updateItemSearch(idx, e.target.value)}
+                      onFocus={() => setItemOpen(idx, true)}
+                      placeholder="Ketik untuk cari produk atau tulis manual..."
+                      className="w-full border rounded-lg px-3 py-2 text-sm"
+                      required
+                    />
+                    {item.open && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setItemOpen(idx, false)} />
+                        <div className="absolute z-20 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                          {filteredProducts(item.search).length === 0 ? (
+                            <div className="px-3 py-2 text-sm text-gray-400">Tidak ada produk</div>
+                          ) : (
+                            filteredProducts(item.search).map((p) => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => selectProduct(idx, p)}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50"
+                              >
+                                <span className="font-medium">{p.name}</span>
+                                <span className="text-gray-500 text-xs ml-2">Rp {p.price.toLocaleString('id-ID')}</span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Jumlah *</label>
+                    <input type="number" value={item.qty} onChange={(e) => updateItem(idx, 'qty', Number(e.target.value))} className="w-full border rounded-lg px-3 py-2 text-sm" min={1} required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Harga *</label>
+                    <input type="number" value={item.price} onChange={(e) => updateItem(idx, 'price', Number(e.target.value))} className="w-full border rounded-lg px-3 py-2 text-sm" min={0} required />
+                  </div>
                 </div>
               ))}
             </div>
 
             <div className="text-right font-semibold">Total: Rp {totalForm.toLocaleString('id-ID')}</div>
 
-            <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as 'paid' | 'unpaid' })} className="w-full border rounded-lg px-3 py-2 text-sm">
-              <option value="unpaid">Belum Lunas</option>
-              <option value="paid">Lunas</option>
-            </select>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as 'paid' | 'unpaid' })} className="w-full border rounded-lg px-3 py-2 text-sm">
+                <option value="unpaid">Belum Lunas</option>
+                <option value="paid">Lunas</option>
+              </select>
+            </div>
 
-            <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Catatan" className="w-full border rounded-lg px-3 py-2 text-sm" rows={2} />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Catatan</label>
+              <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Catatan transaksi" className="w-full border rounded-lg px-3 py-2 text-sm" rows={2} />
+            </div>
 
             <div className="flex gap-2 pt-2">
               <button type="button" onClick={() => { setShowForm(false); setEditingId(null) }} className="flex-1 border rounded-lg py-2 text-sm">Batal</button>

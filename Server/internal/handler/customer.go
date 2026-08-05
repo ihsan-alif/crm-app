@@ -1,9 +1,8 @@
 package handler
 
 import (
-	"encoding/csv"
+	"io"
 	"strconv"
-	"strings"
 
 	"app-crm/internal/model"
 	"app-crm/internal/pkg"
@@ -115,22 +114,27 @@ func (h *CustomerHandler) Import(c *gin.Context) {
 	tenantID := c.GetUint("tenant_id")
 	userID := c.GetUint("user_id")
 
-	file, _, err := c.Request.FormFile("file")
+	file, header, err := c.Request.FormFile("file")
 	if err != nil {
-		pkg.BadRequest(c, "File CSV tidak ditemukan")
+		pkg.BadRequest(c, "File tidak ditemukan")
 		return
 	}
 	defer file.Close()
 
-	reader := csv.NewReader(file)
-	records, err := reader.ReadAll()
+	data, err := io.ReadAll(file)
 	if err != nil {
-		pkg.BadRequest(c, "Format CSV tidak valid")
+		pkg.BadRequest(c, "Gagal membaca file")
+		return
+	}
+
+	records, err := pkg.ParseSpreadsheet(header.Filename, data)
+	if err != nil {
+		pkg.BadRequest(c, "Format file tidak valid")
 		return
 	}
 
 	if len(records) < 2 {
-		pkg.BadRequest(c, "File CSV kosong atau hanya berisi header")
+		pkg.BadRequest(c, "File kosong atau hanya berisi header")
 		return
 	}
 
@@ -145,28 +149,24 @@ func (h *CustomerHandler) Import(c *gin.Context) {
 
 func (h *CustomerHandler) Export(c *gin.Context) {
 	tenantID := c.GetUint("tenant_id")
+	format := c.DefaultQuery("format", "csv")
 
-	csvData, err := h.customerService.ExportCSV(tenantID)
+	headers, rows, err := h.customerService.ExportData(tenantID)
 	if err != nil {
 		pkg.InternalError(c)
 		return
 	}
 
-	c.Header("Content-Type", "text/csv; charset=utf-8")
-	c.Header("Content-Disposition", "attachment; filename=pelanggan.csv")
-	c.String(200, csvData)
+	serveSpreadsheet(c, format, "pelanggan", headers, rows)
 }
 
 func (h *CustomerHandler) Template(c *gin.Context) {
-	var b strings.Builder
-	writer := csv.NewWriter(&b)
-	writer.Write([]string{"nama", "no_wa", "email", "alamat", "tag", "catatan"})
-	writer.Write([]string{"Contoh Budi", "08123456789", "budi@email.com", "Jakarta", "reguler", "Pelanggan baru"})
-	writer.Flush()
+	format := c.DefaultQuery("format", "csv")
 
-	c.Header("Content-Type", "text/csv; charset=utf-8")
-	c.Header("Content-Disposition", "attachment; filename=template_pelanggan.csv")
-	c.String(200, b.String())
+	headers := []string{"nama", "no_wa", "email", "alamat", "tag", "catatan"}
+	rows := [][]string{{"Contoh Budi", "08123456789", "budi@email.com", "Jakarta", "reguler", "Pelanggan baru"}}
+
+	serveSpreadsheet(c, format, "template_pelanggan", headers, rows)
 }
 
 func (h *CustomerHandler) ExportJSON(c *gin.Context) {
