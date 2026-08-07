@@ -51,6 +51,7 @@ func main() {
 
 	authHandler := handler.NewAuthHandler(authSvc)
 	userHandler := handler.NewUserHandler(userSvc)
+	tenantHandler := handler.NewTenantHandler(tenantSvc, cfg.UploadDir)
 	customerHandler := handler.NewCustomerHandler(customerSvc)
 	productHandler := handler.NewProductHandler(productSvc)
 	transactionHandler := handler.NewTransactionHandler(transactionSvc)
@@ -58,8 +59,9 @@ func main() {
 	whatsAppHandler := handler.NewWhatsAppHandler(whatsAppSvc, cfg.WAVerifyToken)
 	activityLogHandler := handler.NewActivityLogHandler(activitySvc)
 
-	r := router.Setup(log, jwtService, authHandler, userHandler, customerHandler, productHandler, transactionHandler, dashboardHandler, whatsAppHandler, activityLogHandler)
+	r := router.Setup(log, jwtService, authHandler, userHandler, tenantHandler, customerHandler, productHandler, transactionHandler, dashboardHandler, whatsAppHandler, activityLogHandler)
 	r.Use(middleware.CORS(cfg.CORSOrigins))
+	r.Static("/uploads", cfg.UploadDir)
 
 	go func() {
 		log.Info().Str("port", cfg.ServerPort).Msg("Server started")

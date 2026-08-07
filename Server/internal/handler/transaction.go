@@ -19,7 +19,7 @@ func NewTransactionHandler(transactionService service.TransactionService) *Trans
 }
 
 func (h *TransactionHandler) List(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
+	tenantID := pkg.TenantID(c)
 	status := c.Query("status")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	perPage, _ := strconv.Atoi(c.DefaultQuery("per_page", "20"))
@@ -41,10 +41,14 @@ func (h *TransactionHandler) List(c *gin.Context) {
 }
 
 func (h *TransactionHandler) Get(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	tenantID := pkg.TenantID(c)
+	id, ok := pkg.ParsePathID(c)
+	if !ok {
+		pkg.BadRequest(c, "ID tidak valid")
+		return
+	}
 
-	tx, err := h.transactionService.FindByID(tenantID, uint(id))
+	tx, err := h.transactionService.FindByID(tenantID, id)
 	if err != nil {
 		pkg.NotFound(c, "Transaksi tidak ditemukan")
 		return
@@ -54,8 +58,8 @@ func (h *TransactionHandler) Get(c *gin.Context) {
 }
 
 func (h *TransactionHandler) Create(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	userID := c.GetUint("user_id")
+	tenantID := pkg.TenantID(c)
+	userID := pkg.UserID(c)
 
 	var req model.TransactionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -70,7 +74,13 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 
 	tx, err := h.transactionService.Create(tenantID, &userID, req)
 	if err != nil {
-		pkg.InternalError(c)
+		if err == pkg.ErrInvalidProduct {
+			pkg.BadRequest(c, err.Error())
+		} else if err == pkg.ErrInvalidCustomer {
+			pkg.BadRequest(c, err.Error())
+		} else {
+			pkg.InternalError(c)
+		}
 		return
 	}
 
@@ -78,8 +88,12 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 }
 
 func (h *TransactionHandler) UpdateStatus(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	tenantID := pkg.TenantID(c)
+	id, ok := pkg.ParsePathID(c)
+	if !ok {
+		pkg.BadRequest(c, "ID tidak valid")
+		return
+	}
 
 	var req struct {
 		Status model.TransactionStatus `json:"status" binding:"required,oneof=paid unpaid"`
@@ -94,7 +108,7 @@ func (h *TransactionHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	if err := h.transactionService.UpdateStatus(tenantID, c.GetUint("user_id"), uint(id), req.Status); err != nil {
+	if err := h.transactionService.UpdateStatus(tenantID, pkg.UserID(c), id, req.Status); err != nil {
 		pkg.NotFound(c, "Transaksi tidak ditemukan")
 		return
 	}
@@ -103,9 +117,13 @@ func (h *TransactionHandler) UpdateStatus(c *gin.Context) {
 }
 
 func (h *TransactionHandler) Update(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	userID := c.GetUint("user_id")
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	tenantID := pkg.TenantID(c)
+	userID := pkg.UserID(c)
+	id, ok := pkg.ParsePathID(c)
+	if !ok {
+		pkg.BadRequest(c, "ID tidak valid")
+		return
+	}
 
 	var req model.TransactionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -118,10 +136,14 @@ func (h *TransactionHandler) Update(c *gin.Context) {
 		return
 	}
 
-	tx, err := h.transactionService.Update(tenantID, userID, uint(id), req)
+	tx, err := h.transactionService.Update(tenantID, userID, id, req)
 	if err != nil {
 		if err == pkg.ErrNotFound {
 			pkg.NotFound(c, "Transaksi tidak ditemukan")
+		} else if err == pkg.ErrInvalidProduct {
+			pkg.BadRequest(c, err.Error())
+		} else if err == pkg.ErrInvalidCustomer {
+			pkg.BadRequest(c, err.Error())
 		} else {
 			pkg.InternalError(c)
 		}
@@ -132,7 +154,7 @@ func (h *TransactionHandler) Update(c *gin.Context) {
 }
 
 func (h *TransactionHandler) ExportCSV(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
+	tenantID := pkg.TenantID(c)
 	format := c.DefaultQuery("format", "csv")
 
 	headers, rows, err := h.transactionService.ExportData(tenantID)
@@ -145,10 +167,14 @@ func (h *TransactionHandler) ExportCSV(c *gin.Context) {
 }
 
 func (h *TransactionHandler) Delete(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	tenantID := pkg.TenantID(c)
+	id, ok := pkg.ParsePathID(c)
+	if !ok {
+		pkg.BadRequest(c, "ID tidak valid")
+		return
+	}
 
-	if err := h.transactionService.Delete(tenantID, c.GetUint("user_id"), uint(id)); err != nil {
+	if err := h.transactionService.Delete(tenantID, pkg.UserID(c), id); err != nil {
 		pkg.NotFound(c, "Transaksi tidak ditemukan")
 		return
 	}

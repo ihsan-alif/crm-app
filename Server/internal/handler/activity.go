@@ -18,7 +18,7 @@ func NewActivityLogHandler(activityService service.ActivityLogService) *Activity
 }
 
 func (h *ActivityLogHandler) List(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
+	tenantID := pkg.TenantID(c)
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	perPage, _ := strconv.Atoi(c.DefaultQuery("per_page", "20"))
 

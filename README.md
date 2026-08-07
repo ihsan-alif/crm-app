@@ -5,6 +5,7 @@ Aplikasi CRM multi-tenant untuk manajemen pelanggan, transaksi penjualan, dan in
 ## Fitur
 
 - **Multi-tenant** — seluruh data dipisahkan per `tenant_id`, setiap registrasi otomatis membuat tenant + user admin baru.
+- **Pengaturan Toko** — ubah nama toko, unggah logo (ditampilkan di sidebar & nota cetak), dan nonaktifkan tenant (diblokir saat login).
 - **Autentikasi JWT** — access token (15 menit) + refresh token (7 hari), role admin/sales.
 - **Manajemen Pelanggan** — CRUD, pencarian, filter tag, import & export CSV/Excel (`.xlsx`).
 - **Manajemen Produk** — master produk (nama, harga, SKU, kategori, deskripsi), dipakai untuk auto-fill harga saat transaksi.
@@ -121,6 +122,7 @@ CRM/
 | `DB_HOST` | Host database (`db` di dalam Compose) |
 | `DB_PORT` | Port database (5432) |
 | `DB_SSLMODE` | Mode SSL (disable) |
+| `DB_TIME_ZONE` | Zona waktu untuk pelaporan (default `Asia/Jakarta`) |
 | `JWT_SECRET` | Secret signing JWT (ganti dengan string acak panjang) |
 | `SERVER_PORT` | Port server (8080) |
 | `SERVER_ENV` | `development` atau `production` |
@@ -178,6 +180,9 @@ Semua endpoint (kecuali auth & webhook) membutuhkan header `Authorization: Beare
 | PUT | `/api/v1/users/me` | Update profil |
 | PUT | `/api/v1/users/password` | Ganti password |
 | GET | `/api/v1/users` | Daftar user (khusus admin) |
+| GET | `/api/v1/tenant` | Info toko/tenant |
+| PUT | `/api/v1/tenant` | Update toko: nama, status aktif (khusus admin) |
+| POST | `/api/v1/tenant/logo` | Upload logo toko (PNG/JPG/WEBP, maks 2MB) |
 
 ### Customers
 

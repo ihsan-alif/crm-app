@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -14,8 +15,8 @@ type JWTService interface {
 }
 
 type TokenClaims struct {
-	UserID   uint
-	TenantID uint
+	UserID   uuid.UUID
+	TenantID uuid.UUID
 	Role     string
 }
 
@@ -34,9 +35,9 @@ func NewJWTService(secret string, accessExpiry, refreshExpiry time.Duration) JWT
 }
 
 type jwtCustomClaims struct {
-	UserID   uint   `json:"user_id"`
-	TenantID uint   `json:"tenant_id"`
-	Role     string `json:"role"`
+	UserID   uuid.UUID `json:"user_id"`
+	TenantID uuid.UUID `json:"tenant_id"`
+	Role     string    `json:"role"`
 	jwt.RegisteredClaims
 }
 

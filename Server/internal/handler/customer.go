@@ -20,7 +20,7 @@ func NewCustomerHandler(customerService service.CustomerService) *CustomerHandle
 }
 
 func (h *CustomerHandler) List(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
+	tenantID := pkg.TenantID(c)
 	search := c.Query("search")
 	tag := c.Query("tag")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -43,10 +43,14 @@ func (h *CustomerHandler) List(c *gin.Context) {
 }
 
 func (h *CustomerHandler) Get(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	tenantID := pkg.TenantID(c)
+	id, ok := pkg.ParsePathID(c)
+	if !ok {
+		pkg.BadRequest(c, "ID tidak valid")
+		return
+	}
 
-	customer, err := h.customerService.FindByID(tenantID, uint(id))
+	customer, err := h.customerService.FindByID(tenantID, id)
 	if err != nil {
 		pkg.NotFound(c, "Pelanggan tidak ditemukan")
 		return
@@ -56,8 +60,8 @@ func (h *CustomerHandler) Get(c *gin.Context) {
 }
 
 func (h *CustomerHandler) Create(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	userID := c.GetUint("user_id")
+	tenantID := pkg.TenantID(c)
+	userID := pkg.UserID(c)
 
 	var req model.Customer
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -80,8 +84,12 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 }
 
 func (h *CustomerHandler) Update(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	tenantID := pkg.TenantID(c)
+	id, ok := pkg.ParsePathID(c)
+	if !ok {
+		pkg.BadRequest(c, "ID tidak valid")
+		return
+	}
 
 	var req model.Customer
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -89,7 +97,7 @@ func (h *CustomerHandler) Update(c *gin.Context) {
 		return
 	}
 
-	customer, err := h.customerService.Update(tenantID, c.GetUint("user_id"), uint(id), req)
+	customer, err := h.customerService.Update(tenantID, pkg.UserID(c), id, req)
 	if err != nil {
 		pkg.NotFound(c, "Pelanggan tidak ditemukan")
 		return
@@ -99,10 +107,14 @@ func (h *CustomerHandler) Update(c *gin.Context) {
 }
 
 func (h *CustomerHandler) Delete(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	tenantID := pkg.TenantID(c)
+	id, ok := pkg.ParsePathID(c)
+	if !ok {
+		pkg.BadRequest(c, "ID tidak valid")
+		return
+	}
 
-	if err := h.customerService.Delete(tenantID, c.GetUint("user_id"), uint(id)); err != nil {
+	if err := h.customerService.Delete(tenantID, pkg.UserID(c), id); err != nil {
 		pkg.NotFound(c, "Pelanggan tidak ditemukan")
 		return
 	}
@@ -111,8 +123,8 @@ func (h *CustomerHandler) Delete(c *gin.Context) {
 }
 
 func (h *CustomerHandler) Import(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	userID := c.GetUint("user_id")
+	tenantID := pkg.TenantID(c)
+	userID := pkg.UserID(c)
 
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
@@ -148,7 +160,7 @@ func (h *CustomerHandler) Import(c *gin.Context) {
 }
 
 func (h *CustomerHandler) Export(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
+	tenantID := pkg.TenantID(c)
 	format := c.DefaultQuery("format", "csv")
 
 	headers, rows, err := h.customerService.ExportData(tenantID)
@@ -170,7 +182,7 @@ func (h *CustomerHandler) Template(c *gin.Context) {
 }
 
 func (h *CustomerHandler) ExportJSON(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
+	tenantID := pkg.TenantID(c)
 
 	customers, err := h.customerService.All(tenantID)
 	if err != nil {

@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type WABroadcastStatus string
 
@@ -28,25 +32,25 @@ const (
 
 type WABroadcast struct {
 	Base
-	TenantID  uint              `gorm:"not null;index" json:"tenant_id"`
-	UserID    *uint             `json:"user_id,omitempty"`
-	Title     string            `gorm:"size:150;not null" json:"title"`
-	Message   string            `gorm:"type:text;not null" json:"message"`
-	TargetTag *string           `gorm:"size:50" json:"target_tag,omitempty"`
-	TargetAll bool              `gorm:"default:false" json:"target_all"`
-	Status    WABroadcastStatus `gorm:"size:10;default:'draft'" json:"status"`
-	Total     int               `gorm:"default:0" json:"total"`
-	Sent      int               `gorm:"default:0" json:"sent"`
-	Failed    int               `gorm:"default:0" json:"failed"`
-	SchedAt   *time.Time        `json:"scheduled_at,omitempty"`
-	SentAt    *time.Time        `json:"sent_at,omitempty"`
+	TenantID  uuid.UUID           `gorm:"type:uuid;not null;index" json:"tenant_id"`
+	UserID    *uuid.UUID          `gorm:"type:uuid" json:"user_id,omitempty"`
+	Title     string              `gorm:"size:150;not null" json:"title"`
+	Message   string              `gorm:"type:text;not null" json:"message"`
+	TargetTag *string             `gorm:"size:50" json:"target_tag,omitempty"`
+	TargetAll bool                `gorm:"default:false" json:"target_all"`
+	Status    WABroadcastStatus   `gorm:"size:10;default:'draft'" json:"status"`
+	Total     int                 `gorm:"default:0" json:"total"`
+	Sent      int                 `gorm:"default:0" json:"sent"`
+	Failed    int                 `gorm:"default:0" json:"failed"`
+	SchedAt   *time.Time          `json:"scheduled_at,omitempty"`
+	SentAt    *time.Time          `json:"sent_at,omitempty"`
 }
 
 type WAMessage struct {
 	Base
-	TenantID    uint            `gorm:"not null;index" json:"tenant_id"`
-	BroadcastID *uint           `json:"broadcast_id,omitempty"`
-	CustomerID  *uint           `gorm:"index" json:"customer_id,omitempty"`
+	TenantID    uuid.UUID       `gorm:"type:uuid;not null;index" json:"tenant_id"`
+	BroadcastID *uuid.UUID      `gorm:"type:uuid" json:"broadcast_id,omitempty"`
+	CustomerID  *uuid.UUID      `gorm:"type:uuid;index" json:"customer_id,omitempty"`
 	Phone       string          `gorm:"size:20;not null" json:"phone"`
 	Direction   WADirection     `gorm:"size:10;default:'outbound';index" json:"direction"`
 	Message     string          `gorm:"type:text;not null" json:"message"`
@@ -66,6 +70,6 @@ type WABroadcastRequest struct {
 }
 
 type WASendRequest struct {
-	CustomerID uint   `json:"customer_id" binding:"required"`
-	Message    string `json:"message" binding:"required"`
+	CustomerID uuid.UUID `json:"customer_id" binding:"required"`
+	Message    string    `json:"message" binding:"required"`
 }

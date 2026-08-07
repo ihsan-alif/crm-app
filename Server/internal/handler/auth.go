@@ -60,7 +60,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		switch err {
 		case pkg.ErrInvalidCreds:
 			pkg.Unauthorized(c, "Email atau password salah")
-		case pkg.ErrNotActive:
+		case pkg.ErrNotActive, pkg.ErrTenantInactive:
 			pkg.Forbidden(c)
 		default:
 			pkg.InternalError(c)

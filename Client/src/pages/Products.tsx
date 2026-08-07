@@ -10,7 +10,7 @@ export default function Products() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState({ name: '', price: '', sku: '', description: '', category: '', is_active: true })
   const [saving, setSaving] = useState(false)
   const perPage = 20
@@ -68,7 +68,7 @@ export default function Products() {
     setShowForm(true)
   }
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Hapus produk ini?')) return
     await api.delete(`/products/${id}`)
     fetch()

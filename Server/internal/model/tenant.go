@@ -28,3 +28,9 @@ type Tenant struct {
 	IsActive  bool         `gorm:"default:true" json:"is_active"`
 	Settings  TenantConfig `gorm:"type:jsonb;default:'{}'" json:"settings"`
 }
+
+type TenantUpdate struct {
+	Name     string `json:"name" binding:"required,min=3,max=100"`
+	LogoURL  *string `json:"logo_url"`
+	IsActive *bool   `json:"is_active"`
+}

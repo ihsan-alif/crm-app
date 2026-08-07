@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 
 	"app-crm/internal/model"
 	"app-crm/internal/pkg"
 	"app-crm/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type WhatsAppHandler struct {
@@ -47,7 +47,7 @@ func (h *WhatsAppHandler) WebhookReceive(c *gin.Context) {
 }
 
 func (h *WhatsAppHandler) GetConfig(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
+	tenantID := pkg.TenantID(c)
 	cfg, err := h.waService.GetConfig(tenantID)
 	if err != nil {
 		pkg.InternalError(c)
@@ -58,13 +58,13 @@ func (h *WhatsAppHandler) GetConfig(c *gin.Context) {
 }
 
 func (h *WhatsAppHandler) SaveConfig(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
+	tenantID := pkg.TenantID(c)
 	var cfg service.WAConfig
 	if err := c.ShouldBindJSON(&cfg); err != nil {
 		pkg.BadRequest(c, "Format data tidak valid")
 		return
 	}
-	if err := h.waService.SaveConfig(tenantID, c.GetUint("user_id"), cfg); err != nil {
+	if err := h.waService.SaveConfig(tenantID, pkg.UserID(c), cfg); err != nil {
 		pkg.InternalError(c)
 		return
 	}
@@ -72,8 +72,8 @@ func (h *WhatsAppHandler) SaveConfig(c *gin.Context) {
 }
 
 func (h *WhatsAppHandler) Send(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	userID := c.GetUint("user_id")
+	tenantID := pkg.TenantID(c)
+	userID := pkg.UserID(c)
 
 	var req model.WASendRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -96,8 +96,8 @@ func (h *WhatsAppHandler) Send(c *gin.Context) {
 }
 
 func (h *WhatsAppHandler) CreateBroadcast(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	userID := c.GetUint("user_id")
+	tenantID := pkg.TenantID(c)
+	userID := pkg.UserID(c)
 
 	var req model.WABroadcastRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -120,10 +120,14 @@ func (h *WhatsAppHandler) CreateBroadcast(c *gin.Context) {
 }
 
 func (h *WhatsAppHandler) SendBroadcast(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	tenantID := pkg.TenantID(c)
+	id, ok := pkg.ParsePathID(c)
+	if !ok {
+		pkg.BadRequest(c, "ID tidak valid")
+		return
+	}
 
-	if err := h.waService.SendBroadcast(tenantID, c.GetUint("user_id"), uint(id)); err != nil {
+	if err := h.waService.SendBroadcast(tenantID, pkg.UserID(c), id); err != nil {
 		pkg.BadRequest(c, err.Error())
 		return
 	}
@@ -132,7 +136,7 @@ func (h *WhatsAppHandler) SendBroadcast(c *gin.Context) {
 }
 
 func (h *WhatsAppHandler) ListBroadcasts(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
+	tenantID := pkg.TenantID(c)
 
 	list, err := h.waService.ListBroadcasts(tenantID)
 	if err != nil {
@@ -144,15 +148,14 @@ func (h *WhatsAppHandler) ListBroadcasts(c *gin.Context) {
 }
 
 func (h *WhatsAppHandler) ListMessages(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	customerID, _ := strconv.ParseUint(c.Query("customer_id"), 10, 64)
-
-	if customerID == 0 {
+	tenantID := pkg.TenantID(c)
+	customerID, err := uuid.Parse(c.Query("customer_id"))
+	if err != nil || customerID == uuid.Nil {
 		pkg.BadRequest(c, "customer_id wajib diisi")
 		return
 	}
 
-	list, err := h.waService.ListMessages(tenantID, uint(customerID))
+	list, err := h.waService.ListMessages(tenantID, customerID)
 	if err != nil {
 		pkg.InternalError(c)
 		return

@@ -1,24 +1,26 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import api from '../lib/api'
-import type { Customer, WABroadcast, WAConfig, PaginatedResponse, ApiResponse } from '../types'
+import { useAuth } from '../context/AuthContext'
+import type { Customer, WABroadcast, WAConfig, WAMessage, PaginatedResponse, ApiResponse } from '../types'
 import { MessageSquare, Send, Megaphone, Settings, Loader2, CheckCircle, XCircle, Clock } from 'lucide-react'
 
-type Tab = 'send' | 'broadcast' | 'settings'
+type Tab = 'inbox' | 'broadcast' | 'settings'
 
 export default function WhatsApp() {
-  const [tab, setTab] = useState<Tab>('settings')
+  const { user } = useAuth()
+  const [tab, setTab] = useState<Tab>('inbox')
 
   const tabs = [
-    { id: 'send' as Tab, label: 'Kirim Pesan', icon: Send },
+    { id: 'inbox' as Tab, label: 'Inbox', icon: MessageSquare },
     { id: 'broadcast' as Tab, label: 'Broadcast', icon: Megaphone },
     { id: 'settings' as Tab, label: 'Pengaturan', icon: Settings },
-  ]
+  ].filter((t) => t.id !== 'settings' || user?.role === 'admin')
 
   return (
     <div className="p-4 md:p-6 pb-20 md:pb-6">
       <h1 className="text-xl font-bold text-gray-800 mb-4">WhatsApp</h1>
 
-      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
+      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit flex-wrap">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -32,87 +34,140 @@ export default function WhatsApp() {
         ))}
       </div>
 
-      {tab === 'send' && <SendTab />}
+      {tab === 'inbox' && <InboxTab />}
       {tab === 'broadcast' && <BroadcastTab />}
       {tab === 'settings' && <SettingsTab />}
     </div>
   )
 }
 
-function SendTab() {
+function InboxTab() {
   const [customers, setCustomers] = useState<Customer[]>([])
-  const [customerId, setCustomerId] = useState(0)
-  const [message, setMessage] = useState('')
+  const [customerId, setCustomerId] = useState('')
+  const [messages, setMessages] = useState<WAMessage[]>([])
+  const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
-  const [result, setResult] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  const fetchMessages = async (id: string) => {
+    if (!id) return
+    setLoading(true)
+    try {
+      const res = await api.get<ApiResponse<WAMessage[]>>(`/wa/messages?customer_id=${id}`)
+      setMessages((res.data.data || []).slice().reverse())
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     api.get<PaginatedResponse<Customer>>('/customers?per_page=100')
       .then((res) => setCustomers(res.data.data))
   }, [])
 
-  const handleSend = async (e: React.FormEvent) => {
+  useEffect(() => {
+    setMessages([])
+    if (customerId) fetchMessages(customerId)
+  }, [customerId])
+
+  useEffect(() => {
+    if (!customerId) return
+    const t = setInterval(() => fetchMessages(customerId), 10000)
+    return () => clearInterval(t)
+  }, [customerId])
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
+  }, [messages])
+
+  const handleReply = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!customerId || !message.trim()) return
+    if (!customerId || !draft.trim()) return
     setSending(true)
-    setResult(null)
     try {
-      const res = await api.post<ApiResponse<any>>('/wa/send', { customer_id: customerId, message })
-      setResult('Pesan berhasil dikirim!')
-      setMessage('')
-    } catch (err: any) {
-      setResult(err.response?.data?.error?.message || 'Gagal mengirim')
-    } finally {
-      setSending(false)
-    }
+      await api.post('/wa/send', { customer_id: customerId, message: draft })
+      setDraft('')
+      await fetchMessages(customerId)
+    } catch {}
+    setSending(false)
   }
 
+  const fmtTime = (s: string) =>
+    new Date(s).toLocaleString('id-ID', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+
   return (
-    <div className="max-w-lg">
-      <form onSubmit={handleSend} className="bg-white rounded-xl shadow-sm border p-5 space-y-4">
-        <h2 className="font-semibold">Kirim Pesan WhatsApp</h2>
+    <div className="bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col max-w-2xl" style={{ height: 'calc(100vh - 200px)' }}>
+      <div className="p-4 border-b">
         <select
           value={customerId}
-          onChange={(e) => setCustomerId(Number(e.target.value))}
+          onChange={(e) => setCustomerId(e.target.value)}
           className="w-full border rounded-lg px-3 py-2 text-sm outline-none"
-          required
         >
           <option value="">Pilih pelanggan</option>
           {customers.map((c) => (
             <option key={c.id} value={c.id}>{c.name} - {c.phone}</option>
           ))}
         </select>
+      </div>
 
-        <div>
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Tulis pesan... Gunakan {nama} untuk nama pelanggan"
-            className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-            rows={4}
-            required
-          />
-          <p className="text-xs text-gray-400 mt-1">Contoh: Halo {'{nama}'}, ada promo spesial untuk Anda!</p>
+      {!customerId ? (
+        <div className="flex-1 flex items-center justify-center text-gray-400 text-sm py-12 px-4 text-center">
+          Pilih pelanggan di atas untuk melihat riwayat percakapan
         </div>
+      ) : (
+        <>
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2 bg-gray-50">
+            {loading && messages.length === 0 && (
+              <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-blue-600" /></div>
+            )}
+            {!loading && messages.length === 0 && (
+              <div className="text-center text-gray-400 text-sm py-8">Belum ada pesan. Mulai percakapan di bawah.</div>
+            )}
+            {messages.map((m) => (
+              <div key={m.id} className={`flex ${m.direction === 'inbound' ? 'justify-start' : 'justify-end'}`}>
+                <div
+                  className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
+                    m.direction === 'inbound'
+                      ? 'bg-white border text-gray-800'
+                      : 'bg-green-600 text-white'
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap break-words">{m.message}</p>
+                  <p className={`text-[10px] mt-1 ${m.direction === 'inbound' ? 'text-gray-400' : 'text-green-100'}`}>
+                    {fmtTime(m.sent_at || m.created_at)}
+                    {m.direction === 'outbound' && (
+                      <span className="ml-1">
+                        {m.status === 'failed' ? 'â€¢ gagal' : m.status === 'sent' ? 'âœ“âœ“' : 'âœ“'}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
 
-        <button
-          type="submit"
-          disabled={sending}
-          className="flex items-center justify-center gap-2 w-full bg-green-600 text-white py-2.5 rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium transition-colors"
-        >
-          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          {sending ? 'Mengirim...' : 'Kirim WhatsApp'}
-        </button>
-
-        {result && (
-          <p className={`text-sm text-center ${result.includes('berhasil') ? 'text-green-600' : 'text-red-600'}`}>
-            {result}
-          </p>
-        )}
-      </form>
+          <form onSubmit={handleReply} className="border-t p-3 flex gap-2 bg-white">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Ketik balasan... Gunakan {nama} untuk nama pelanggan"
+              className="flex-1 border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-500"
+            />
+            <button
+              type="submit"
+              disabled={sending || !draft.trim()}
+              className="flex items-center justify-center bg-green-600 text-white px-4 rounded-lg hover:bg-green-700 disabled:opacity-50"
+            >
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </button>
+          </form>
+        </>
+      )}
     </div>
   )
 }
+
 
 function BroadcastTab() {
   const [broadcasts, setBroadcasts] = useState<WABroadcast[]>([])
@@ -154,7 +209,7 @@ function BroadcastTab() {
     }
   }
 
-  const handleSend = async (id: number) => {
+  const handleSend = async (id: string) => {
     if (!confirm('Kirim broadcast ini sekarang?')) return
     try {
       await api.post(`/wa/broadcasts/${id}/send`)
@@ -231,7 +286,7 @@ function BroadcastTab() {
                   <p className="text-xs text-gray-500 mt-1 line-clamp-2">{b.message}</p>
                   <p className="text-xs text-gray-400 mt-1">
                     {b.target_all ? 'Semua pelanggan' : `Tag: ${b.target_tag}`}
-                    {b.total > 0 && ` • ${b.sent} terkirim / ${b.failed} gagal`}
+                    {b.total > 0 && ` â€¢ ${b.sent} terkirim / ${b.failed} gagal`}
                   </p>
                 </div>
                 {b.status === 'draft' && (

@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider } from './context/AuthContext'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
@@ -13,6 +13,12 @@ import TransactionPrint from './pages/TransactionPrint'
 import WhatsApp from './pages/WhatsApp'
 import ActivityLogs from './pages/ActivityLogs'
 import Settings from './pages/Settings'
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
+  if (user?.role !== 'admin') return <Navigate to="/" replace />
+  return <>{children}</>
+}
 
 export default function App() {
   return (
@@ -29,7 +35,7 @@ export default function App() {
             <Route path="/products" element={<Products />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/wa" element={<WhatsApp />} />
-            <Route path="/activity-logs" element={<ActivityLogs />} />
+            <Route path="/activity-logs" element={<AdminRoute><ActivityLogs /></AdminRoute>} />
             <Route path="/settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

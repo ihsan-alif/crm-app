@@ -12,10 +12,11 @@ import (
 )
 
 func Setup(
-	log zerolog.Logger,
+log zerolog.Logger,
 	jwtService pkg.JWTService,
 	authHandler *handler.AuthHandler,
 	userHandler *handler.UserHandler,
+	tenantHandler *handler.TenantHandler,
 	customerHandler *handler.CustomerHandler,
 	productHandler *handler.ProductHandler,
 	transactionHandler *handler.TransactionHandler,
@@ -49,6 +50,17 @@ func Setup(
 			protected.PUT("/users/me", userHandler.UpdateProfile)
 			protected.PUT("/users/password", userHandler.ChangePassword)
 			protected.GET("/users", middleware.Role("admin"), userHandler.List)
+			protected.POST("/users", middleware.Role("admin"), userHandler.Create)
+			protected.PUT("/users/:id/active", middleware.Role("admin"), userHandler.ToggleActive)
+			protected.PUT("/users/:id/password", middleware.Role("admin"), userHandler.AdminResetPassword)
+			protected.DELETE("/users/:id", middleware.Role("admin"), userHandler.Delete)
+
+			tenant := protected.Group("/tenant")
+			{
+				tenant.GET("", tenantHandler.Get)
+				tenant.PUT("", middleware.Role("admin"), tenantHandler.Update)
+				tenant.POST("/logo", middleware.Role("admin"), tenantHandler.UploadLogo)
+			}
 
 			customers := protected.Group("/customers")
 			{
@@ -84,12 +96,12 @@ func Setup(
 
 			protected.GET("/dashboard", dashboardHandler.Index)
 
-			protected.GET("/activity-logs", activityLogHandler.List)
+			protected.GET("/activity-logs", middleware.Role("admin"), activityLogHandler.List)
 
 			wa := protected.Group("/wa")
 			{
-				wa.GET("/config", whatsAppHandler.GetConfig)
-				wa.PUT("/config", whatsAppHandler.SaveConfig)
+				wa.GET("/config", middleware.Role("admin"), whatsAppHandler.GetConfig)
+				wa.PUT("/config", middleware.Role("admin"), whatsAppHandler.SaveConfig)
 				wa.POST("/send", whatsAppHandler.Send)
 				wa.GET("/broadcasts", whatsAppHandler.ListBroadcasts)
 				wa.POST("/broadcasts", whatsAppHandler.CreateBroadcast)

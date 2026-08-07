@@ -9,11 +9,14 @@ import (
 )
 
 var (
-	ErrNotFound     = errors.New("data tidak ditemukan")
-	ErrEmailExists  = errors.New("email sudah terdaftar")
-	ErrInvalidCreds = errors.New("email atau password salah")
-	ErrNotActive    = errors.New("akun tidak aktif")
-	ErrPasswordWrong = errors.New("password lama salah")
+	ErrNotFound       = errors.New("data tidak ditemukan")
+	ErrEmailExists    = errors.New("email sudah terdaftar")
+	ErrInvalidCreds   = errors.New("email atau password salah")
+	ErrNotActive      = errors.New("akun tidak aktif")
+	ErrTenantInactive = errors.New("tenant tidak aktif")
+	ErrPasswordWrong  = errors.New("password lama salah")
+	ErrInvalidProduct = errors.New("produk tidak ditemukan")
+	ErrInvalidCustomer = errors.New("pelanggan tidak ditemukan")
 )
 
 func ParseValidationErrors(err error) []FieldError {

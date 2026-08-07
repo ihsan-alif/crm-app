@@ -1,12 +1,22 @@
+export interface Tenant {
+  id: string
+  name: string
+  subdomain: string
+  logo_url: string | null
+  is_active: boolean
+  settings: Record<string, any>
+}
+
 export interface User {
-  id: number
-  tenant_id: number
+  id: string
+  tenant_id: string
   name: string
   email: string
   role: 'admin' | 'sales'
   is_active: boolean
   last_login_at: string | null
   created_at: string
+  tenant?: Tenant
 }
 
 export interface LoginResponse {
@@ -16,8 +26,8 @@ export interface LoginResponse {
 }
 
 export interface Customer {
-  id: number
-  tenant_id: number
+  id: string
+  tenant_id: string
   name: string
   phone: string
   email: string | null
@@ -30,8 +40,8 @@ export interface Customer {
 }
 
 export interface Product {
-  id: number
-  tenant_id: number
+  id: string
+  tenant_id: string
   name: string
   price: number
   sku: string | null
@@ -42,7 +52,8 @@ export interface Product {
 }
 
 export interface TransactionItem {
-  id?: number
+  id?: string
+  product_id: string
   name: string
   qty: number
   price: number
@@ -50,15 +61,15 @@ export interface TransactionItem {
 }
 
 export interface Transaction {
-  id: number
-  customer_id: number
+  id: string
+  customer_id: string
   number: string
   total: number
   status: 'paid' | 'unpaid'
   notes: string | null
   items: TransactionItem[]
   created_at: string
-  customer?: { id: number; name: string; phone: string }
+  customer?: { id: string; name: string; phone: string }
 }
 
 export interface ApiResponse<T> {
@@ -99,7 +110,7 @@ export interface WAConfig {
 }
 
 export interface WABroadcast {
-  id: number
+  id: string
   title: string
   message: string
   target_tag: string | null
@@ -113,9 +124,10 @@ export interface WABroadcast {
 }
 
 export interface WAMessage {
-  id: number
-  customer_id: number
+  id: string
+  customer_id: string
   phone: string
+  direction: 'inbound' | 'outbound'
   message: string
   status: 'pending' | 'sent' | 'failed'
   wa_message_id: string | null
@@ -126,11 +138,11 @@ export interface WAMessage {
 }
 
 export interface ActivityLog {
-  id: number
-  user_id: number | null
+  id: string
+  user_id: string | null
   action: string
   entity: string
-  entity_id: number | null
+  entity_id: string | null
   description: string
   created_at: string
   user?: { name: string }

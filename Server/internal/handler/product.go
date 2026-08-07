@@ -19,7 +19,7 @@ func NewProductHandler(productService service.ProductService) *ProductHandler {
 }
 
 func (h *ProductHandler) List(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
+	tenantID := pkg.TenantID(c)
 	search := c.Query("search")
 	category := c.Query("category")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -42,10 +42,14 @@ func (h *ProductHandler) List(c *gin.Context) {
 }
 
 func (h *ProductHandler) Get(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	tenantID := pkg.TenantID(c)
+	id, ok := pkg.ParsePathID(c)
+	if !ok {
+		pkg.BadRequest(c, "ID tidak valid")
+		return
+	}
 
-	product, err := h.productService.FindByID(tenantID, uint(id))
+	product, err := h.productService.FindByID(tenantID, id)
 	if err != nil {
 		pkg.NotFound(c, "Produk tidak ditemukan")
 		return
@@ -55,8 +59,8 @@ func (h *ProductHandler) Get(c *gin.Context) {
 }
 
 func (h *ProductHandler) Create(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	userID := c.GetUint("user_id")
+	tenantID := pkg.TenantID(c)
+	userID := pkg.UserID(c)
 
 	var req model.Product
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -79,9 +83,13 @@ func (h *ProductHandler) Create(c *gin.Context) {
 }
 
 func (h *ProductHandler) Update(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	userID := c.GetUint("user_id")
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	tenantID := pkg.TenantID(c)
+	userID := pkg.UserID(c)
+	id, ok := pkg.ParsePathID(c)
+	if !ok {
+		pkg.BadRequest(c, "ID tidak valid")
+		return
+	}
 
 	var req model.Product
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -94,7 +102,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 		return
 	}
 
-	product, err := h.productService.Update(tenantID, userID, uint(id), req)
+	product, err := h.productService.Update(tenantID, userID, id, req)
 	if err != nil {
 		if err == pkg.ErrNotFound {
 			pkg.NotFound(c, "Produk tidak ditemukan")
@@ -108,10 +116,14 @@ func (h *ProductHandler) Update(c *gin.Context) {
 }
 
 func (h *ProductHandler) Delete(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	tenantID := pkg.TenantID(c)
+	id, ok := pkg.ParsePathID(c)
+	if !ok {
+		pkg.BadRequest(c, "ID tidak valid")
+		return
+	}
 
-	if err := h.productService.Delete(tenantID, c.GetUint("user_id"), uint(id)); err != nil {
+	if err := h.productService.Delete(tenantID, pkg.UserID(c), id); err != nil {
 		pkg.NotFound(c, "Produk tidak ditemukan")
 		return
 	}

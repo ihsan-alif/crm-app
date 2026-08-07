@@ -3,11 +3,12 @@ package service
 import (
 	"app-crm/internal/model"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type ActivityLogService interface {
-	List(tenantID uint, page, perPage int) ([]model.ActivityLog, *model.Pagination, error)
+	List(tenantID uuid.UUID, page, perPage int) ([]model.ActivityLog, *model.Pagination, error)
 }
 
 type activityLogService struct {
@@ -18,7 +19,7 @@ func NewActivityLogService(db *gorm.DB) ActivityLogService {
 	return &activityLogService{db: db}
 }
 
-func (s *activityLogService) List(tenantID uint, page, perPage int) ([]model.ActivityLog, *model.Pagination, error) {
+func (s *activityLogService) List(tenantID uuid.UUID, page, perPage int) ([]model.ActivityLog, *model.Pagination, error) {
 	query := s.db.Where("tenant_id = ?", tenantID)
 
 	var total int64
@@ -40,7 +41,7 @@ func (s *activityLogService) List(tenantID uint, page, perPage int) ([]model.Act
 	return logs, pagination, err
 }
 
-func createActivityLog(db *gorm.DB, tenantID uint, userID *uint, action, entity, description string, entityID *uint) {
+func createActivityLog(db *gorm.DB, tenantID uuid.UUID, userID *uuid.UUID, action, entity, description string, entityID *uuid.UUID) {
 	entry := model.ActivityLog{
 		TenantID:    tenantID,
 		UserID:      userID,

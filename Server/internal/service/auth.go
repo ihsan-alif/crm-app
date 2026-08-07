@@ -61,6 +61,10 @@ func (s *authService) Login(req model.LoginRequest) (*model.LoginResponse, error
 		return nil, pkg.ErrInvalidCreds
 	}
 
+	if user.Tenant != nil && !user.Tenant.IsActive {
+		return nil, pkg.ErrTenantInactive
+	}
+
 	if !user.IsActive {
 		return nil, pkg.ErrNotActive
 	}
@@ -95,6 +99,14 @@ func (s *authService) RefreshToken(refreshToken string) (*model.LoginResponse, e
 	user, err := s.userService.FindByID(claims.UserID)
 	if err != nil {
 		return nil, pkg.ErrInvalidCreds
+	}
+
+	if !user.IsActive {
+		return nil, pkg.ErrNotActive
+	}
+
+	if user.Tenant != nil && !user.Tenant.IsActive {
+		return nil, pkg.ErrTenantInactive
 	}
 
 	tokens, err := s.generateTokens(user)

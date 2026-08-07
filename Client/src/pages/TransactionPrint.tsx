@@ -50,9 +50,14 @@ export default function TransactionPrint() {
         <div id="receipt" className="text-sm leading-relaxed">
           {/* Header */}
           <div className="flex justify-between items-start border-b-2 border-gray-800 pb-4 mb-6">
-            <div>
-              <p className="font-bold text-2xl uppercase">{tx.tenant?.name || 'TOKO'}</p>
-              <p className="text-gray-500 mt-1">Terima kasih atas kunjungan Anda</p>
+            <div className="flex items-center gap-3">
+              {tx.tenant?.logo_url && (
+                <img src={tx.tenant.logo_url} alt="Logo" className="h-16 w-16 object-contain" />
+              )}
+              <div>
+                <p className="font-bold text-2xl uppercase">{tx.tenant?.name || 'TOKO'}</p>
+                <p className="text-gray-500 mt-1">Terima kasih atas kunjungan Anda</p>
+              </div>
             </div>
             <div className="text-right">
               <p className="font-bold text-xl uppercase">Nota Penjualan</p>

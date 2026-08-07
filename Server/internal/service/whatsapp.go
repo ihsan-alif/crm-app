@@ -11,6 +11,7 @@ import (
 	"app-crm/internal/model"
 	"app-crm/internal/pkg"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -21,13 +22,13 @@ type WAConfig struct {
 }
 
 type WhatsAppService interface {
-	GetConfig(tenantID uint) (*WAConfig, error)
-	SaveConfig(tenantID, userID uint, cfg WAConfig) error
-	SendMessage(tenantID, userID, customerID uint, message string) (*model.WAMessage, error)
-	CreateBroadcast(tenantID, userID uint, req model.WABroadcastRequest) (*model.WABroadcast, error)
-	SendBroadcast(tenantID, userID, broadcastID uint) error
-	ListBroadcasts(tenantID uint) ([]model.WABroadcast, error)
-	ListMessages(tenantID uint, customerID uint) ([]model.WAMessage, error)
+	GetConfig(tenantID uuid.UUID) (*WAConfig, error)
+	SaveConfig(tenantID, userID uuid.UUID, cfg WAConfig) error
+	SendMessage(tenantID, userID, customerID uuid.UUID, message string) (*model.WAMessage, error)
+	CreateBroadcast(tenantID, userID uuid.UUID, req model.WABroadcastRequest) (*model.WABroadcast, error)
+	SendBroadcast(tenantID, userID, broadcastID uuid.UUID) error
+	ListBroadcasts(tenantID uuid.UUID) ([]model.WABroadcast, error)
+	ListMessages(tenantID uuid.UUID, customerID uuid.UUID) ([]model.WAMessage, error)
 	HandleWebhook(payload []byte) error
 }
 
@@ -43,7 +44,7 @@ func NewWhatsAppService(db *gorm.DB) WhatsAppService {
 	}
 }
 
-func (s *whatsAppService) GetConfig(tenantID uint) (*WAConfig, error) {
+func (s *whatsAppService) GetConfig(tenantID uuid.UUID) (*WAConfig, error) {
 	var tenant model.Tenant
 	if err := s.db.First(&tenant, tenantID).Error; err != nil {
 		return nil, err
@@ -60,7 +61,7 @@ func (s *whatsAppService) GetConfig(tenantID uint) (*WAConfig, error) {
 	return &cfg, nil
 }
 
-func (s *whatsAppService) SaveConfig(tenantID, userID uint, cfg WAConfig) error {
+func (s *whatsAppService) SaveConfig(tenantID, userID uuid.UUID, cfg WAConfig) error {
 	var tenant model.Tenant
 	if err := s.db.First(&tenant, tenantID).Error; err != nil {
 		return err
@@ -82,7 +83,7 @@ func (s *whatsAppService) SaveConfig(tenantID, userID uint, cfg WAConfig) error 
 	return nil
 }
 
-func (s *whatsAppService) SendMessage(tenantID, userID, customerID uint, message string) (*model.WAMessage, error) {
+func (s *whatsAppService) SendMessage(tenantID, userID, customerID uuid.UUID, message string) (*model.WAMessage, error) {
 	cfg, err := s.GetConfig(tenantID)
 	if err != nil || !cfg.IsActive {
 		return nil, fmt.Errorf("WhatsApp belum dikonfigurasi")
@@ -128,7 +129,7 @@ func (s *whatsAppService) SendMessage(tenantID, userID, customerID uint, message
 	return &msg, apiErr
 }
 
-func (s *whatsAppService) CreateBroadcast(tenantID, userID uint, req model.WABroadcastRequest) (*model.WABroadcast, error) {
+func (s *whatsAppService) CreateBroadcast(tenantID, userID uuid.UUID, req model.WABroadcastRequest) (*model.WABroadcast, error) {
 	b := &model.WABroadcast{
 		TenantID:  tenantID,
 		UserID:    &userID,
@@ -146,7 +147,7 @@ func (s *whatsAppService) CreateBroadcast(tenantID, userID uint, req model.WABro
 	return b, nil
 }
 
-func (s *whatsAppService) SendBroadcast(tenantID, userID, broadcastID uint) error {
+func (s *whatsAppService) SendBroadcast(tenantID, userID, broadcastID uuid.UUID) error {
 	cfg, err := s.GetConfig(tenantID)
 	if err != nil || !cfg.IsActive {
 		return fmt.Errorf("WhatsApp belum dikonfigurasi")
@@ -218,13 +219,13 @@ func (s *whatsAppService) SendBroadcast(tenantID, userID, broadcastID uint) erro
 	return nil
 }
 
-func (s *whatsAppService) ListBroadcasts(tenantID uint) ([]model.WABroadcast, error) {
+func (s *whatsAppService) ListBroadcasts(tenantID uuid.UUID) ([]model.WABroadcast, error) {
 	var list []model.WABroadcast
 	err := s.db.Where("tenant_id = ?", tenantID).Order("created_at DESC").Find(&list).Error
 	return list, err
 }
 
-func (s *whatsAppService) ListMessages(tenantID uint, customerID uint) ([]model.WAMessage, error) {
+func (s *whatsAppService) ListMessages(tenantID uuid.UUID, customerID uuid.UUID) ([]model.WAMessage, error) {
 	var list []model.WAMessage
 	err := s.db.Where("tenant_id = ? AND customer_id = ?", tenantID, customerID).
 		Order("created_at DESC").Limit(50).Find(&list).Error
@@ -261,13 +262,13 @@ func (s *whatsAppService) HandleWebhook(payload []byte) error {
 	return nil
 }
 
-func (s *whatsAppService) findTenantByPhoneID(phoneID string) (uint, error) {
+func (s *whatsAppService) findTenantByPhoneID(phoneID string) (uuid.UUID, error) {
 	var tenant model.Tenant
 	err := s.db.Where("settings -> 'whatsapp' ->> 'phone_number_id' = ?", phoneID).First(&tenant).Error
 	return tenant.ID, err
 }
 
-func (s *whatsAppService) saveInboundMessages(tenantID uint, value waWebhookValue) {
+func (s *whatsAppService) saveInboundMessages(tenantID uuid.UUID, value waWebhookValue) {
 	for _, msg := range value.Messages {
 		name := ""
 		for _, contact := range value.Contacts {
@@ -299,7 +300,7 @@ func (s *whatsAppService) saveInboundMessages(tenantID uint, value waWebhookValu
 	}
 }
 
-func (s *whatsAppService) updateMessageStatuses(tenantID uint, statuses []waWebhookStatus) {
+func (s *whatsAppService) updateMessageStatuses(tenantID uuid.UUID, statuses []waWebhookStatus) {
 	for _, st := range statuses {
 		status := mapStatus(st.Status)
 		if status == "" {
@@ -322,7 +323,7 @@ func mapStatus(s string) model.WAMessageStatus {
 	}
 }
 
-func (s *whatsAppService) findOrCreateCustomer(tenantID uint, phone, name string) (*model.Customer, error) {
+func (s *whatsAppService) findOrCreateCustomer(tenantID uuid.UUID, phone, name string) (*model.Customer, error) {
 	norm := normalizePhone(phone)
 
 	var customers []model.Customer
@@ -398,7 +399,7 @@ type waWebhookStatus struct {
 	Status string `json:"status"`
 }
 
-func (s *whatsAppService) findCustomer(tenantID, customerID uint) (*model.Customer, error) {
+func (s *whatsAppService) findCustomer(tenantID, customerID uuid.UUID) (*model.Customer, error) {
 	var c model.Customer
 	err := s.db.Where("tenant_id = ? AND id = ?", tenantID, customerID).First(&c).Error
 	if err != nil {

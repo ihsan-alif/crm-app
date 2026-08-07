@@ -14,6 +14,7 @@ type Config struct {
 	DBPassword string
 	DBName     string
 	DBSSLMode  string
+	DBTimeZone string
 
 	JWTSecret        string
 	JWTAccessExpiry  time.Duration
@@ -25,6 +26,7 @@ type Config struct {
 	CORSOrigins string
 
 	WAVerifyToken string
+	UploadDir    string
 }
 
 func Load() *Config {
@@ -37,6 +39,7 @@ func Load() *Config {
 		DBPassword: os.Getenv("DB_PASSWORD"),
 		DBName:     os.Getenv("DB_NAME"),
 		DBSSLMode:  os.Getenv("DB_SSLMODE"),
+		DBTimeZone: getEnv("DB_TIME_ZONE", "Asia/Jakarta"),
 
 		JWTSecret:        os.Getenv("JWT_SECRET"),
 		JWTAccessExpiry:  parseDuration("JWT_ACCESS_EXPIRY", 15*time.Minute),
@@ -48,6 +51,7 @@ func Load() *Config {
 		CORSOrigins: os.Getenv("CORS_ORIGINS"),
 
 		WAVerifyToken: os.Getenv("WA_VERIFY_TOKEN"),
+	UploadDir:     getEnv("UPLOAD_DIR", "uploads"),
 	}
 }
 
@@ -63,6 +67,13 @@ func parseDuration(key string, def time.Duration) time.Duration {
 	return d
 }
 
+func getEnv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
 func (c *Config) IsProduction() bool {
 	return c.ServerEnv == "production"
 }
@@ -73,5 +84,6 @@ func (c *Config) DSN() string {
 		" user=" + c.DBUser +
 		" password=" + c.DBPassword +
 		" dbname=" + c.DBName +
-		" sslmode=" + c.DBSSLMode
+		" sslmode=" + c.DBSSLMode +
+		" TimeZone=" + c.DBTimeZone
 }

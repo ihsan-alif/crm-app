@@ -1,11 +1,15 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type Customer struct {
 	Base
-	TenantID        uint       `gorm:"not null;index" json:"tenant_id"`
-	UserID          *uint      `json:"user_id,omitempty"`
+	TenantID        uuid.UUID  `gorm:"type:uuid;not null;index" json:"tenant_id"`
+	UserID          *uuid.UUID `gorm:"type:uuid" json:"user_id,omitempty"`
 	Name            string     `gorm:"size:150;not null" json:"name"`
 	Phone           string     `gorm:"size:20;not null" json:"phone"`
 	Email           *string    `gorm:"size:150" json:"email,omitempty"`

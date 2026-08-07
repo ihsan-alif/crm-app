@@ -7,6 +7,7 @@ import (
 	"app-crm/internal/model"
 	"app-crm/internal/pkg"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -16,17 +17,17 @@ type RevenuePoint struct {
 }
 
 type TransactionService interface {
-	Create(tenantID uint, userID *uint, req model.TransactionRequest) (*model.Transaction, error)
-	FindByID(tenantID, id uint) (*model.Transaction, error)
-	List(tenantID uint, status string, page, perPage int) ([]model.Transaction, *model.Pagination, error)
-	Update(tenantID, userID, id uint, req model.TransactionRequest) (*model.Transaction, error)
-	UpdateStatus(tenantID, userID, id uint, status model.TransactionStatus) error
-	Delete(tenantID, userID, id uint) error
-	CountByTenant(tenantID uint) (int64, error)
-	TotalRevenueByTenant(tenantID uint) (float64, error)
-	ExportData(tenantID uint) ([]string, [][]string, error)
-	Recent(tenantID uint, limit int) ([]model.Transaction, error)
-	RevenueByDay(tenantID uint, days int) ([]RevenuePoint, error)
+	Create(tenantID uuid.UUID, userID *uuid.UUID, req model.TransactionRequest) (*model.Transaction, error)
+	FindByID(tenantID, id uuid.UUID) (*model.Transaction, error)
+	List(tenantID uuid.UUID, status string, page, perPage int) ([]model.Transaction, *model.Pagination, error)
+	Update(tenantID, userID, id uuid.UUID, req model.TransactionRequest) (*model.Transaction, error)
+	UpdateStatus(tenantID, userID, id uuid.UUID, status model.TransactionStatus) error
+	Delete(tenantID, userID, id uuid.UUID) error
+	CountByTenant(tenantID uuid.UUID) (int64, error)
+	TotalRevenueByTenant(tenantID uuid.UUID) (float64, error)
+	ExportData(tenantID uuid.UUID) ([]string, [][]string, error)
+	Recent(tenantID uuid.UUID, limit int) ([]model.Transaction, error)
+	RevenueByDay(tenantID uuid.UUID, days int) ([]RevenuePoint, error)
 }
 
 type transactionService struct {
@@ -37,20 +38,16 @@ func NewTransactionService(db *gorm.DB) TransactionService {
 	return &transactionService{db: db}
 }
 
-func (s *transactionService) Create(tenantID uint, userID *uint, req model.TransactionRequest) (*model.Transaction, error) {
+func (s *transactionService) Create(tenantID uuid.UUID, userID *uuid.UUID, req model.TransactionRequest) (*model.Transaction, error) {
 	number := generateTransactionNumber()
 
-	total := 0.0
-	var items []model.TransactionItem
-	for _, item := range req.Items {
-		subtotal := float64(item.Qty) * item.Price
-		total += subtotal
-		items = append(items, model.TransactionItem{
-			Name:     item.Name,
-			Qty:      item.Qty,
-			Price:    item.Price,
-			Subtotal: subtotal,
-		})
+	if err := s.validateCustomer(tenantID, req.CustomerID); err != nil {
+		return nil, err
+	}
+
+	items, total, err := s.resolveItems(tenantID, req.Items)
+	if err != nil {
+		return nil, err
 	}
 
 	tx := &model.Transaction{
@@ -74,9 +71,9 @@ func (s *transactionService) Create(tenantID uint, userID *uint, req model.Trans
 	return tx, nil
 }
 
-func (s *transactionService) FindByID(tenantID, id uint) (*model.Transaction, error) {
+func (s *transactionService) FindByID(tenantID, id uuid.UUID) (*model.Transaction, error) {
 	var tx model.Transaction
-	err := s.db.Preload("Items").Preload("Customer").Preload("Tenant").
+	err := s.db.Preload("Items").Preload("Customer", "tenant_id = ?", tenantID).Preload("Tenant").
 		Where("tenant_id = ? AND id = ?", tenantID, id).First(&tx).Error
 	if err != nil {
 		return nil, pkg.ErrNotFound
@@ -84,7 +81,7 @@ func (s *transactionService) FindByID(tenantID, id uint) (*model.Transaction, er
 	return &tx, nil
 }
 
-func (s *transactionService) List(tenantID uint, status string, page, perPage int) ([]model.Transaction, *model.Pagination, error) {
+func (s *transactionService) List(tenantID uuid.UUID, status string, page, perPage int) ([]model.Transaction, *model.Pagination, error) {
 	query := s.db.Where("tenant_id = ?", tenantID)
 	if status != "" {
 		query = query.Where("status = ?", status)
@@ -106,27 +103,25 @@ func (s *transactionService) List(tenantID uint, status string, page, perPage in
 	return transactions, pagination, err
 }
 
-func (s *transactionService) Update(tenantID, userID, id uint, req model.TransactionRequest) (*model.Transaction, error) {
+func (s *transactionService) Update(tenantID, userID, id uuid.UUID, req model.TransactionRequest) (*model.Transaction, error) {
 	var tx model.Transaction
 	if err := s.db.Preload("Items").Where("tenant_id = ? AND id = ?", tenantID, id).First(&tx).Error; err != nil {
 		return nil, pkg.ErrNotFound
 	}
 
-	total := 0.0
-	items := make([]model.TransactionItem, 0, len(req.Items))
-	for _, item := range req.Items {
-		subtotal := float64(item.Qty) * item.Price
-		total += subtotal
-		items = append(items, model.TransactionItem{
-			TransactionID: tx.ID,
-			Name:          item.Name,
-			Qty:           item.Qty,
-			Price:         item.Price,
-			Subtotal:      subtotal,
-		})
+	if err := s.validateCustomer(tenantID, req.CustomerID); err != nil {
+		return nil, err
 	}
 
-	err := s.db.Transaction(func(txdb *gorm.DB) error {
+	items, total, err := s.resolveItems(tenantID, req.Items)
+	if err != nil {
+		return nil, err
+	}
+	for i := range items {
+		items[i].TransactionID = tx.ID
+	}
+
+	err = s.db.Transaction(func(txdb *gorm.DB) error {
 		if err := txdb.Where("transaction_id = ?", tx.ID).Delete(&model.TransactionItem{}).Error; err != nil {
 			return err
 		}
@@ -155,7 +150,7 @@ func (s *transactionService) Update(tenantID, userID, id uint, req model.Transac
 	return s.FindByID(tenantID, tx.ID)
 }
 
-func (s *transactionService) UpdateStatus(tenantID, userID, id uint, status model.TransactionStatus) error {
+func (s *transactionService) UpdateStatus(tenantID, userID, id uuid.UUID, status model.TransactionStatus) error {
 	var tx model.Transaction
 	if err := s.db.Where("tenant_id = ? AND id = ?", tenantID, id).First(&tx).Error; err != nil {
 		return pkg.ErrNotFound
@@ -175,7 +170,7 @@ func (s *transactionService) UpdateStatus(tenantID, userID, id uint, status mode
 	return result.Error
 }
 
-func (s *transactionService) Delete(tenantID, userID, id uint) error {
+func (s *transactionService) Delete(tenantID, userID, id uuid.UUID) error {
 	var tx model.Transaction
 	if err := s.db.Where("tenant_id = ? AND id = ?", tenantID, id).First(&tx).Error; err != nil {
 		return pkg.ErrNotFound
@@ -191,13 +186,13 @@ func (s *transactionService) Delete(tenantID, userID, id uint) error {
 	return result.Error
 }
 
-func (s *transactionService) CountByTenant(tenantID uint) (int64, error) {
+func (s *transactionService) CountByTenant(tenantID uuid.UUID) (int64, error) {
 	var count int64
 	err := s.db.Model(&model.Transaction{}).Where("tenant_id = ?", tenantID).Count(&count).Error
 	return count, err
 }
 
-func (s *transactionService) TotalRevenueByTenant(tenantID uint) (float64, error) {
+func (s *transactionService) TotalRevenueByTenant(tenantID uuid.UUID) (float64, error) {
 	var result struct {
 		Total float64
 	}
@@ -208,7 +203,7 @@ func (s *transactionService) TotalRevenueByTenant(tenantID uint) (float64, error
 	return result.Total, err
 }
 
-func (s *transactionService) Recent(tenantID uint, limit int) ([]model.Transaction, error) {
+func (s *transactionService) Recent(tenantID uuid.UUID, limit int) ([]model.Transaction, error) {
 	var transactions []model.Transaction
 	err := s.db.Where("tenant_id = ?", tenantID).
 		Preload("Items").
@@ -218,13 +213,13 @@ func (s *transactionService) Recent(tenantID uint, limit int) ([]model.Transacti
 	return transactions, err
 }
 
-func (s *transactionService) RevenueByDay(tenantID uint, days int) ([]RevenuePoint, error) {
+func (s *transactionService) RevenueByDay(tenantID uuid.UUID, days int) ([]RevenuePoint, error) {
 	var results []RevenuePoint
 	err := s.db.Model(&model.Transaction{}).
-		Select("DATE(created_at) as date, COALESCE(SUM(total), 0) as total").
+		Select("to_char(created_at, 'YYYY-MM-DD') as date, COALESCE(SUM(total), 0) as total").
 		Where("tenant_id = ? AND status = ? AND created_at >= CURRENT_DATE - INTERVAL '1 day' * ? AND deleted_at IS NULL",
 			tenantID, model.StatusPaid, days).
-		Group("DATE(created_at)").
+		Group("to_char(created_at, 'YYYY-MM-DD')").
 		Order("date ASC").
 		Scan(&results).Error
 	if err != nil {
@@ -236,7 +231,7 @@ func (s *transactionService) RevenueByDay(tenantID uint, days int) ([]RevenuePoi
 	return results, nil
 }
 
-func (s *transactionService) ExportData(tenantID uint) ([]string, [][]string, error) {
+func (s *transactionService) ExportData(tenantID uuid.UUID) ([]string, [][]string, error) {
 	var transactions []model.Transaction
 	err := s.db.Preload("Items").
 		Where("tenant_id = ?", tenantID).
@@ -257,7 +252,7 @@ func (s *transactionService) ExportData(tenantID uint) ([]string, [][]string, er
 		rows = append(rows, []string{
 			t.Number,
 			t.CreatedAt.Format("2006-01-02"),
-			fmt.Sprintf("%d", t.CustomerID),
+			t.CustomerID.String(),
 			fmt.Sprintf("%.0f", t.Total),
 			string(t.Status),
 			notes,
@@ -270,4 +265,41 @@ func (s *transactionService) ExportData(tenantID uint) ([]string, [][]string, er
 func generateTransactionNumber() string {
 	now := time.Now()
 	return fmt.Sprintf("INV-%s-%04d", now.Format("20060102"), now.UnixMilli()%10000)
+}
+
+func (s *transactionService) validateCustomer(tenantID, customerID uuid.UUID) error {
+	var count int64
+	if err := s.db.Model(&model.Customer{}).
+		Where("tenant_id = ? AND id = ?", tenantID, customerID).
+		Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return pkg.ErrInvalidCustomer
+	}
+	return nil
+}
+
+func (s *transactionService) resolveItems(tenantID uuid.UUID, reqItems []model.TransactionItemRequest) ([]model.TransactionItem, float64, error) {
+	total := 0.0
+	items := make([]model.TransactionItem, 0, len(reqItems))
+
+	for _, item := range reqItems {
+		var product model.Product
+		if err := s.db.Where("tenant_id = ? AND id = ?", tenantID, item.ProductID).First(&product).Error; err != nil {
+			return nil, 0, pkg.ErrInvalidProduct
+		}
+
+		subtotal := float64(item.Qty) * product.Price
+		total += subtotal
+		items = append(items, model.TransactionItem{
+			ProductID: product.ID,
+			Name:      product.Name,
+			Qty:       item.Qty,
+			Price:     product.Price,
+			Subtotal:  subtotal,
+		})
+	}
+
+	return items, total, nil
 }

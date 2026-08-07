@@ -1,5 +1,10 @@
 import axios from 'axios'
 
+const clearSession = () => {
+  localStorage.removeItem('access_token')
+  localStorage.removeItem('refresh_token')
+}
+
 const api = axios.create({
   baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
@@ -27,11 +32,11 @@ api.interceptors.response.use(
           err.config.headers.Authorization = `Bearer ${data.data.access_token}`
           return api(err.config)
         } catch {
-          localStorage.clear()
+          clearSession()
           window.location.href = '/login'
         }
       } else {
-        localStorage.clear()
+        clearSession()
         window.location.href = '/login'
       }
     }

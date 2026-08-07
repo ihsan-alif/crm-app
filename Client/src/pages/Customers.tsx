@@ -12,7 +12,7 @@ export default function Customers() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [showImport, setShowImport] = useState(false)
   const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', tag: '', notes: '' })
   const [saving, setSaving] = useState(false)
@@ -67,7 +67,7 @@ export default function Customers() {
     setShowForm(true)
   }
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Hapus pelanggan ini?')) return
     await api.delete(`/customers/${id}`)
     fetch()

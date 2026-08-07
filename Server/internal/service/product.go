@@ -4,16 +4,17 @@ import (
 	"app-crm/internal/model"
 	"app-crm/internal/pkg"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type ProductService interface {
-	Create(tenantID, userID uint, req model.Product) (*model.Product, error)
-	FindByID(tenantID, id uint) (*model.Product, error)
-	List(tenantID uint, search, category string, page, perPage int) ([]model.Product, *model.Pagination, error)
-	Update(tenantID, userID, id uint, req model.Product) (*model.Product, error)
-	Delete(tenantID, userID, id uint) error
-	All(tenantID uint) ([]model.Product, error)
+	Create(tenantID, userID uuid.UUID, req model.Product) (*model.Product, error)
+	FindByID(tenantID, id uuid.UUID) (*model.Product, error)
+	List(tenantID uuid.UUID, search, category string, page, perPage int) ([]model.Product, *model.Pagination, error)
+	Update(tenantID, userID, id uuid.UUID, req model.Product) (*model.Product, error)
+	Delete(tenantID, userID, id uuid.UUID) error
+	All(tenantID uuid.UUID) ([]model.Product, error)
 }
 
 type productService struct {
@@ -24,7 +25,7 @@ func NewProductService(db *gorm.DB) ProductService {
 	return &productService{db: db}
 }
 
-func (s *productService) Create(tenantID, userID uint, req model.Product) (*model.Product, error) {
+func (s *productService) Create(tenantID, userID uuid.UUID, req model.Product) (*model.Product, error) {
 	product := &model.Product{
 		TenantID:    tenantID,
 		Name:        req.Name,
@@ -44,7 +45,7 @@ func (s *productService) Create(tenantID, userID uint, req model.Product) (*mode
 	return product, nil
 }
 
-func (s *productService) FindByID(tenantID, id uint) (*model.Product, error) {
+func (s *productService) FindByID(tenantID, id uuid.UUID) (*model.Product, error) {
 	var product model.Product
 	err := s.db.Where("tenant_id = ? AND id = ?", tenantID, id).First(&product).Error
 	if err != nil {
@@ -53,7 +54,7 @@ func (s *productService) FindByID(tenantID, id uint) (*model.Product, error) {
 	return &product, nil
 }
 
-func (s *productService) List(tenantID uint, search, category string, page, perPage int) ([]model.Product, *model.Pagination, error) {
+func (s *productService) List(tenantID uuid.UUID, search, category string, page, perPage int) ([]model.Product, *model.Pagination, error) {
 	query := s.db.Where("tenant_id = ?", tenantID)
 
 	if search != "" {
@@ -81,7 +82,7 @@ func (s *productService) List(tenantID uint, search, category string, page, perP
 	return products, pagination, err
 }
 
-func (s *productService) Update(tenantID, userID, id uint, req model.Product) (*model.Product, error) {
+func (s *productService) Update(tenantID, userID, id uuid.UUID, req model.Product) (*model.Product, error) {
 	product, err := s.FindByID(tenantID, id)
 	if err != nil {
 		return nil, err
@@ -111,7 +112,7 @@ func (s *productService) Update(tenantID, userID, id uint, req model.Product) (*
 	return product, nil
 }
 
-func (s *productService) Delete(tenantID, userID, id uint) error {
+func (s *productService) Delete(tenantID, userID, id uuid.UUID) error {
 	var product model.Product
 	if err := s.db.Where("tenant_id = ? AND id = ?", tenantID, id).First(&product).Error; err != nil {
 		return pkg.ErrNotFound
@@ -126,7 +127,7 @@ func (s *productService) Delete(tenantID, userID, id uint) error {
 	return result.Error
 }
 
-func (s *productService) All(tenantID uint) ([]model.Product, error) {
+func (s *productService) All(tenantID uuid.UUID) ([]model.Product, error) {
 	var products []model.Product
 	err := s.db.Where("tenant_id = ? AND is_active = ?", tenantID, true).
 		Order("name ASC").Find(&products).Error

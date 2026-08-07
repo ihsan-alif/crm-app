@@ -20,7 +20,7 @@ func NewDashboardHandler(customerService service.CustomerService, transactionSer
 }
 
 func (h *DashboardHandler) Index(c *gin.Context) {
-	tenantID := c.GetUint("tenant_id")
+	tenantID := pkg.TenantID(c)
 
 	customerCount, _ := h.customerService.CountByTenant(tenantID)
 	transactionCount, _ := h.transactionService.CountByTenant(tenantID)

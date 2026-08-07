@@ -8,6 +8,7 @@ import (
 	"app-crm/internal/model"
 	"app-crm/internal/pkg"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -18,16 +19,16 @@ type ImportResult struct {
 }
 
 type CustomerService interface {
-	Create(tenantID, userID uint, req model.Customer) (*model.Customer, error)
-	FindByID(tenantID, id uint) (*model.Customer, error)
-	List(tenantID uint, search, tag string, page, perPage int) ([]model.Customer, *model.Pagination, error)
-	Update(tenantID, userID, id uint, req model.Customer) (*model.Customer, error)
-	Delete(tenantID, userID, id uint) error
-	CountByTenant(tenantID uint) (int64, error)
-	ImportCSV(tenantID, userID uint, records [][]string) (*ImportResult, error)
-	ExportData(tenantID uint) ([]string, [][]string, error)
-	All(tenantID uint) ([]model.Customer, error)
-	Recent(tenantID uint, limit int) ([]model.Customer, error)
+	Create(tenantID, userID uuid.UUID, req model.Customer) (*model.Customer, error)
+	FindByID(tenantID, id uuid.UUID) (*model.Customer, error)
+	List(tenantID uuid.UUID, search, tag string, page, perPage int) ([]model.Customer, *model.Pagination, error)
+	Update(tenantID, userID, id uuid.UUID, req model.Customer) (*model.Customer, error)
+	Delete(tenantID, userID, id uuid.UUID) error
+	CountByTenant(tenantID uuid.UUID) (int64, error)
+	ImportCSV(tenantID, userID uuid.UUID, records [][]string) (*ImportResult, error)
+	ExportData(tenantID uuid.UUID) ([]string, [][]string, error)
+	All(tenantID uuid.UUID) ([]model.Customer, error)
+	Recent(tenantID uuid.UUID, limit int) ([]model.Customer, error)
 }
 
 type customerService struct {
@@ -38,7 +39,7 @@ func NewCustomerService(db *gorm.DB) CustomerService {
 	return &customerService{db: db}
 }
 
-func (s *customerService) Create(tenantID, userID uint, req model.Customer) (*model.Customer, error) {
+func (s *customerService) Create(tenantID, userID uuid.UUID, req model.Customer) (*model.Customer, error) {
 	customer := &model.Customer{
 		TenantID: tenantID,
 		UserID:   &userID,
@@ -60,7 +61,7 @@ func (s *customerService) Create(tenantID, userID uint, req model.Customer) (*mo
 	return customer, nil
 }
 
-func (s *customerService) FindByID(tenantID, id uint) (*model.Customer, error) {
+func (s *customerService) FindByID(tenantID, id uuid.UUID) (*model.Customer, error) {
 	var customer model.Customer
 	err := s.db.Where("tenant_id = ? AND id = ?", tenantID, id).First(&customer).Error
 	if err != nil {
@@ -69,7 +70,7 @@ func (s *customerService) FindByID(tenantID, id uint) (*model.Customer, error) {
 	return &customer, nil
 }
 
-func (s *customerService) List(tenantID uint, search, tag string, page, perPage int) ([]model.Customer, *model.Pagination, error) {
+func (s *customerService) List(tenantID uuid.UUID, search, tag string, page, perPage int) ([]model.Customer, *model.Pagination, error) {
 	query := s.db.Where("tenant_id = ?", tenantID)
 
 	if search != "" {
@@ -97,7 +98,7 @@ func (s *customerService) List(tenantID uint, search, tag string, page, perPage 
 	return customers, pagination, err
 }
 
-func (s *customerService) Update(tenantID, userID, id uint, req model.Customer) (*model.Customer, error) {
+func (s *customerService) Update(tenantID, userID, id uuid.UUID, req model.Customer) (*model.Customer, error) {
 	customer, err := s.FindByID(tenantID, id)
 	if err != nil {
 		return nil, err
@@ -132,7 +133,7 @@ func (s *customerService) Update(tenantID, userID, id uint, req model.Customer) 
 	return customer, nil
 }
 
-func (s *customerService) Delete(tenantID, userID, id uint) error {
+func (s *customerService) Delete(tenantID, userID, id uuid.UUID) error {
 	var customer model.Customer
 	if err := s.db.Where("tenant_id = ? AND id = ?", tenantID, id).First(&customer).Error; err != nil {
 		return pkg.ErrNotFound
@@ -147,25 +148,25 @@ func (s *customerService) Delete(tenantID, userID, id uint) error {
 	return result.Error
 }
 
-func (s *customerService) CountByTenant(tenantID uint) (int64, error) {
+func (s *customerService) CountByTenant(tenantID uuid.UUID) (int64, error) {
 	var count int64
 	err := s.db.Model(&model.Customer{}).Where("tenant_id = ?", tenantID).Count(&count).Error
 	return count, err
 }
 
-func (s *customerService) All(tenantID uint) ([]model.Customer, error) {
+func (s *customerService) All(tenantID uuid.UUID) ([]model.Customer, error) {
 	var customers []model.Customer
 	err := s.db.Where("tenant_id = ?", tenantID).Order("created_at DESC").Find(&customers).Error
 	return customers, err
 }
 
-func (s *customerService) Recent(tenantID uint, limit int) ([]model.Customer, error) {
+func (s *customerService) Recent(tenantID uuid.UUID, limit int) ([]model.Customer, error) {
 	var customers []model.Customer
 	err := s.db.Where("tenant_id = ?", tenantID).Order("created_at DESC").Limit(limit).Find(&customers).Error
 	return customers, err
 }
 
-func (s *customerService) ImportCSV(tenantID, userID uint, records [][]string) (*ImportResult, error) {
+func (s *customerService) ImportCSV(tenantID, userID uuid.UUID, records [][]string) (*ImportResult, error) {
 	result := &ImportResult{}
 
 	for i, row := range records {
@@ -227,7 +228,7 @@ func (s *customerService) ImportCSV(tenantID, userID uint, records [][]string) (
 	return result, nil
 }
 
-func (s *customerService) ExportData(tenantID uint) ([]string, [][]string, error) {
+func (s *customerService) ExportData(tenantID uuid.UUID) ([]string, [][]string, error) {
 	customers, err := s.All(tenantID)
 	if err != nil {
 		return nil, nil, err
@@ -265,3 +266,4 @@ func (s *customerService) ExportData(tenantID uint) ([]string, [][]string, error
 func calcPages(total int, perPage int) int {
 	return int(math.Ceil(float64(total) / float64(perPage)))
 }
+

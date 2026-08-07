@@ -8,6 +8,7 @@ Thumbs.db
 # === Go ===
 Server/bin/
 Server/tmp/
+Server/uploads/
 *.exe
 *.exe~
 *.dll

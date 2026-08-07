@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type UserRole string
 
@@ -11,7 +15,7 @@ const (
 
 type User struct {
 	Base
-	TenantID     uint       `gorm:"not null;index" json:"tenant_id"`
+	TenantID     uuid.UUID  `gorm:"type:uuid;not null;index" json:"tenant_id"`
 	Name         string     `gorm:"size:100;not null" json:"name"`
 	Email        string     `gorm:"size:150;uniqueIndex;not null" json:"email"`
 	PasswordHash string     `gorm:"size:255;not null" json:"-"`
